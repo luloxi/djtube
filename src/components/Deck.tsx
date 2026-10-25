@@ -32,7 +32,6 @@ type Props = {
   bpm: number | null;
   peaks: number[] | null;
   cueTime: number;
-  analyzing: boolean;
   onVolume: (volume: number) => void;
   onRate: (rate: number) => void;
   onBpm: (bpm: number | null) => void;
@@ -40,8 +39,6 @@ type Props = {
   onTitle: (videoId: string, title: string) => void;
   onRates: (rates: number[]) => void;
   onDropTrack: (track: Track) => void;
-  onAnalyze: () => void;
-  onStopAnalyze: () => void;
   onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
 };
@@ -69,7 +66,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     bpm,
     peaks,
     cueTime,
-    analyzing,
     onVolume,
     onRate,
     onBpm,
@@ -77,8 +73,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onTitle,
     onRates,
     onDropTrack,
-    onAnalyze,
-    onStopAnalyze,
     onSaveHighlight,
     onStatus,
   } = props;
@@ -529,16 +523,8 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         <button type="button" onClick={tap} disabled={!videoId}>
           TAP
         </button>
-        {analyzing ? (
-          <button type="button" onClick={onStopAnalyze}>
-            Detener
-          </button>
-        ) : (
-          <button type="button" onClick={onAnalyze} disabled={!videoId}>
-            Analizar
-          </button>
-        )}
       </div>
+      {videoId && !peaks?.length ? <p className="hint">La onda llega del Sincronizador. TAP sigue aquí.</p> : null}
       {duration > 0 ? (
         <Waveform
           peaks={peaks}

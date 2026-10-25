@@ -11,7 +11,7 @@ type Props = {
 
 export function SyncNote({ bpmA, bpmB, ratesA, ratesB, onApply }: Props) {
   if (!bpmA || !bpmB) {
-    return <p className="hint sync">Analiza, marca TAP o escribe el BPM de los dos decks para ver el sync.</p>;
+    return <p className="hint sync">Abre el Sincronizador, marca TAP o escribe el BPM de los dos decks.</p>;
   }
   if (Math.abs(bpmA - bpmB) < 0.6) {
     return <p className="hint sync">Los tempos ya coinciden.</p>;

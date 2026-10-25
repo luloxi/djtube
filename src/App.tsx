@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AudioCoverage, DeckId, DeckModel, Highlight, Track } from './types';
+import type { AnalysisMeta, AudioCoverage, DeckId, DeckModel, Highlight, Track } from './types';
 import { DEFAULT_RATES, emptyDeck } from './types';
 import { Deck, type DeckHandle } from './components/Deck';
 import { Header } from './components/Header';
@@ -8,13 +8,15 @@ import { Library } from './components/Library';
 import { SearchBox } from './components/SearchBox';
 import { SyncNote } from './components/SyncNote';
 import { Transition } from './components/Transition';
-import { captureDeck } from './lib/analyze';
 import { sliceBlobToWebm } from './lib/clip';
+import { playChime } from './lib/chime';
 import { downloadBlob } from './lib/download';
 import { addHighlight, regionHasAudio } from './lib/highlights';
-import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveAnalysis, saveAudio, saveHighlights, saveLibrary, saveSession } from './lib/idb';
+import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
-import { mergePeaks, slicePeaks } from './lib/peaks';
+import { slicePeaks } from './lib/peaks';
+import { openSyncChannel, parseSyncMessage } from './lib/sync-channel';
+import { collectTracks } from './lib/sync-queue';
 import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds } from './lib/youtube';
 import { readPlaylistIds } from './lib/youtube-api';
 
@@ -26,18 +28,21 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [coverage, setCoverage] = useState<Record<string, AudioCoverage>>({});
   const [rates, setRates] = useState<Record<DeckId, number[]>>({ A: DEFAULT_RATES, B: DEFAULT_RATES });
-  const [solo, setSolo] = useState<DeckId | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('Pega un enlace o busca. El fader manda.');
   const [booted, setBooted] = useState(false);
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
 
   const xRef = useRef(0.5);
   const glideRef = useRef<number | null>(null);
   const decksRef = useRef(decks);
+  const libraryRef = useRef(library);
   const deckA = useRef<DeckHandle>(null);
   const deckB = useRef<DeckHandle>(null);
-  const analyzeAbort = useRef<AbortController | null>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const audioRef = useRef<AudioContext | null>(null);
   decksRef.current = decks;
+  libraryRef.current = library;
 
   const handleFor = (id: DeckId) => (id === 'A' ? deckA.current : deckB.current);
 
@@ -140,6 +145,101 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       cancel = true;
     };
   }, [booted, decks.B.videoId]);
+
+  useEffect(() => {
+    const unlock = () => {
+      const ctx = audioRef.current ?? new AudioContext();
+      audioRef.current = ctx;
+      void ctx.resume();
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 2800);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  function tracksNow() {
+    const current = decksRef.current;
+    return collectTracks(libraryRef.current, [
+      current.A.videoId ? { videoId: current.A.videoId, title: current.A.title, thumbnail: current.A.thumbnail } : null,
+      current.B.videoId ? { videoId: current.B.videoId, title: current.B.title, thumbnail: current.B.thumbnail } : null,
+    ]);
+  }
+
+  function paintAnalysis(meta: AnalysisMeta, mode: 'fresh' | 'fill') {
+    setCoverage((prev) => ({
+      ...prev,
+      [meta.videoId]: { recordStart: meta.recordStart, recordEnd: meta.recordEnd, hasAudio: meta.hasAudio },
+    }));
+    setDecks((prev) => {
+      let next = prev;
+      for (const id of ['A', 'B'] as const) {
+        if (next[id].videoId !== meta.videoId) continue;
+        const peaks = mode === 'fresh' ? (meta.peaks.length ? meta.peaks : next[id].peaks) : next[id].peaks?.length ? next[id].peaks : meta.peaks;
+        const bpm = mode === 'fresh' ? (meta.bpm ?? next[id].bpm) : (next[id].bpm ?? meta.bpm);
+        next = { ...next, [id]: { ...next[id], peaks, bpm } };
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    const channel = openSyncChannel();
+    channelRef.current = channel;
+    if (!channel) return;
+    channel.onmessage = (event) => {
+      const message = parseSyncMessage(event.data);
+      if (!message) return;
+      if (message.type === 'request-tracks') {
+        channel.postMessage({ type: 'tracks', tracks: tracksNow() });
+        return;
+      }
+      if (message.type === 'analysis') {
+        paintAnalysis(message.meta, 'fresh');
+        return;
+      }
+      if (message.type === 'chime') {
+        setToast({ id: Date.now(), text: 'Cola sincronizada.' });
+        const ctx = audioRef.current ?? new AudioContext();
+        audioRef.current = ctx;
+        void ctx.resume().then(() => playChime(ctx)).catch(() => undefined);
+      }
+    };
+    return () => {
+      channel.close();
+      if (channelRef.current === channel) channelRef.current = null;
+    };
+    // tracksNow and paintAnalysis read refs and setState, both stable for this listener.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!booted) return;
+    channelRef.current?.postMessage({ type: 'tracks', tracks: tracksNow() });
+  }, [booted, library, decks.A.videoId, decks.A.title, decks.A.thumbnail, decks.B.videoId, decks.B.title, decks.B.thumbnail]);
+
+  useEffect(() => {
+    const fill = () => {
+      for (const id of ['A', 'B'] as const) {
+        const videoId = decksRef.current[id].videoId;
+        if (!videoId) continue;
+        void loadAnalysis(videoId).then((meta) => {
+          if (meta) paintAnalysis(meta, 'fill');
+        });
+      }
+    };
+    window.addEventListener('focus', fill);
+    return () => window.removeEventListener('focus', fill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function playing(id: DeckId): boolean {
@@ -263,77 +363,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     void enrichTracks([parsed.videoId], rename);
   }
 
-  async function analyze(id: DeckId) {
-    const deck = decksRef.current[id];
-    const handle = handleFor(id);
-    const player = handle?.getPlayer();
-    if (!deck.videoId || !handle || !player) {
-      setStatus('Carga un tema y espera a que el reproductor esté listo.');
-      return;
-    }
-    analyzeAbort.current?.abort();
-    const controller = new AbortController();
-    analyzeAbort.current = controller;
-    const previousRate = deck.playbackRate;
-    setSolo(id);
-    handle.setGain(1);
-    handleFor(id === 'A' ? 'B' : 'A')?.setGain(0);
-    handle.setRate(1);
-    handle.play();
-    setStatus(`Comparte esta pestaña con audio. El deck ${id === 'A' ? 'B' : 'A'} queda en silencio.`);
-    try {
-      const result = await captureDeck({
-        player,
-        signal: controller.signal,
-        initialPeaks: deck.peaks,
-        onPeaks: (peaks) => {
-          setDecks((prev) => ({ ...prev, [id]: { ...prev[id], peaks } }));
-        },
-      });
-      const merged = mergePeaks(decksRef.current[id].peaks, result.peaks);
-      let hasAudio = false;
-      if (result.blob) {
-        try {
-          await saveAudio(deck.videoId, result.blob);
-          hasAudio = true;
-        } catch {
-          hasAudio = false;
-        }
-      }
-      const meta = {
-        videoId: deck.videoId,
-        peaks: merged,
-        duration: result.duration,
-        bpm: result.bpm,
-        recordStart: result.recordStart,
-        recordEnd: result.recordEnd,
-        hasAudio,
-      };
-      try {
-        await saveAnalysis(meta);
-      } catch {
-        /* peaks still live in the deck */
-      }
-      setCoverage((prev) => ({ ...prev, [deck.videoId!]: { recordStart: result.recordStart, recordEnd: result.recordEnd, hasAudio } }));
-      setDecks((prev) => ({
-        ...prev,
-        [id]: { ...prev[id], peaks: merged, bpm: result.bpm ?? prev[id].bpm },
-      }));
-      setStatus(result.warning ?? (result.bpm ? `Listo. ${result.bpm} BPM en el deck ${id}.` : `Onda guardada en ${id}. El BPM no quedó claro: usa TAP.`));
-    } catch (error) {
-      const aborted = error instanceof DOMException && error.name === 'AbortError';
-      setStatus(aborted ? 'Análisis detenido.' : error instanceof Error ? error.message : 'No pude analizar.');
-    } finally {
-      setSolo(null);
-      handle.setRate(previousRate);
-      setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: previousRate } }));
-    }
-  }
-
-  function stopAnalyze() {
-    analyzeAbort.current?.abort();
-  }
-
   function saveHighlight(id: DeckId, start: number, end: number, label: string) {
     const deck = decksRef.current[id];
     if (!deck.videoId) return;
@@ -386,12 +415,11 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             videoId={decks[id].videoId}
             title={decks[id].title}
             volume={decks[id].volume}
-            gain={solo === id ? 1 : solo ? 0 : id === 'A' ? shownA : shownB}
+            gain={id === 'A' ? shownA : shownB}
             playbackRate={decks[id].playbackRate}
             bpm={decks[id].bpm}
             peaks={decks[id].peaks}
             cueTime={decks[id].cueTime}
-            analyzing={solo === id}
             onVolume={(volume) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], volume } }))}
             onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
             onBpm={(bpm) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], bpm } }))}
@@ -399,8 +427,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             onTitle={rename}
             onRates={(next) => setRates((prev) => ({ ...prev, [id]: next }))}
             onDropTrack={(track) => void loadInto(id, track)}
-            onAnalyze={() => void analyze(id)}
-            onStopAnalyze={stopAnalyze}
             onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
             onStatus={setStatus}
           />
@@ -431,6 +457,11 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         />
       </div>
       <footer className="keys">espacio ambos · Q / W cada deck · ← → fader · shift salta más</footer>
+      {toast ? (
+        <div className="toast" role="status" data-testid="sync-toast">
+          {toast.text}
+        </div>
+      ) : null}
     </div>
   );
 }

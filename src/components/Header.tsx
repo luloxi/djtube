@@ -82,6 +82,11 @@ export function Header({
         <p className="tag">El oído manda.</p>
       </div>
       <div className="top-actions">
+        <a className="icon-button" href="/sync" target="_blank" rel="noopener noreferrer" title="Sincronizador" aria-label="Sincronizador" data-testid="open-sync">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M3 13h3.2l1.6-4.2 3.4 8.4 2.2-5.2H21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
         {owner ? (
           <a className="text-link" href="/admin">
             Admin

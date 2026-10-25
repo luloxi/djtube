@@ -21,8 +21,12 @@ None of them are a clean, small, permissively licensed two-deck app we could dro
 ## Libraries we do use
 
 - **wavesurfer.js 7** (BSD-3-Clause) and its **Regions** plugin. The YouTube IFrame does not expose audio, so WaveSurfer does not play the track. It renders precomputed peaks (`peaks` + `duration`, no media URL, `backend: 'WebAudio'` so the playhead can move) and drag-selects a highlight.
-- **web-audio-beat-detector** (MIT). `analyze(AudioBuffer)` runs on the tab-audio capture after "Analizar". That matches "record a buffer, then estimate".
-- **realtime-bpm-analyzer** (Apache-2.0) was the other candidate. It is built for a live AudioWorklet stream and would need the buffer to play back in real time. We already hold the capture for the waveform and the highlight clip, so the offline detector is the better fit. A small interval/energy estimator in `src/lib/bpm.ts` is the fallback if the library throws (quiet audio, no beats) and is what the unit tests lock down.
+- **web-audio-beat-detector** (MIT). `analyze(AudioBuffer)` runs on a slice of the sync tab's capture. The player runs at its highest rate, so the detector's tempo window is scaled by that rate and the result is divided before it is folded into a DJ range. Doing the fold first would halve a 2× reading a second time.
+- **realtime-bpm-analyzer** (Apache-2.0) was the other candidate. It is built for a live AudioWorklet stream and would need the buffer to play back in real time. The sync tab already holds a capture for the waveform, so the offline detector is the better fit. A small interval/energy estimator in `src/lib/bpm.ts` is the fallback if the library throws (quiet audio, no beats) and is what the unit tests lock down.
+
+## Why analysis is not a deck button
+
+Capturing the mixer tab means soloing one deck and playing it through the speakers, which breaks the set. `/sync` is a second view of the same signed-in app. It captures itself, with `suppressLocalAudioPlayback`, and the two tabs share the queue over `BroadcastChannel`. IndexedDB stays the copy that is still there after a reload. The chime is played in the mixer tab because the sync tab's own audio is the one being silenced.
 
 ## Mix curve
 

@@ -15,13 +15,19 @@ Pensado para escritorio. En el móvil los decks se apilan.
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
 
-## Analizar, BPM, cortes
+## Sincronizador, BPM, cortes
 
-El iframe no entrega el audio. **Analizar** pide compartir esta pestaña **con audio**, deja el otro deck en silencio y reproduce el que analizas. Con eso se dibuja la onda (wavesurfer) y se estima el BPM. Picos y BPM quedan en IndexedDB: la próxima vez salen al momento.
+El iframe no entrega el audio, y analizar en el mismo deck en el que mezclas corta el sonido. El botón de onda del encabezado (**Sincronizador**) abre `/sync` en otra pestaña, con el mismo acceso.
 
-Si no convence el número: **TAP** o edítalo a mano. Con BPM en los dos decks, el sync propone el `playbackRate` para igualarlos y el valor que el player realmente puede aplicar.
+1. En esa pestaña, **Empezar** una vez. Hay que usar **Chrome o Edge** y compartir **esta** pestaña **con audio**. La captura pide `suppressLocalAudioPlayback`: el audio entra al análisis y **no sale por los altavoces**. Firefox y Safari no saben silenciar esa captura, y la página no arranca.
+2. Un reproductor pequeño de YouTube pasa la cola. Usa la velocidad más alta que acepte el video (suele ser ×2) y el BPM detectado se divide por esa velocidad. En temas cortos suena el tema entero. En temas largos, una ventana continua sirve para el BPM y unos saltos arman la onda de toda la duración.
+3. Picos y BPM quedan en IndexedDB, por `videoId`. La pestaña del mixer se entera al momento (BroadcastChannel) y pinta la onda, el BPM y la sugerencia de sync sin recargar. Lo que ya estaba analizado no se repite.
+4. La lista muestra en cola, analizando (con avance), listo con BPM, o error con reintento. Se puede pausar. Cuando la cola termina, el mixer suena un campanazo corto y muestra un aviso. Solo vuelve a sonar cuando entra trabajo nuevo y ese lote también termina.
+5. Puedes dejar el sincronizador en segundo plano: el reloj es el audio de la captura, no una cadena de `setTimeout`. Si Chrome pausa el video al ocultar la pestaña, al volver se reanuda.
 
-Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. **Audio** descarga el tramo en `.webm` solo si esa zona se capturó en Analizar; si no, el botón no se puede pulsar.
+En el deck ya no está **Analizar**. Si el número no convence: **TAP** o edítalo a mano. Con BPM en los dos decks, el sync propone el `playbackRate` para igualarlos y el valor que el player realmente puede aplicar.
+
+Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. **Audio** descarga el tramo en `.webm` solo si esa zona se capturó antes en este navegador. El sincronizador no guarda el clip: el audio va acelerado y no coincide con el reloj del tema.
 
 **Grabar** usa la captura de pantalla del navegador (vídeo + audio) y al parar descarga la sesión.
 
@@ -70,8 +76,10 @@ Por qué no partimos de otro mixer: [DECISIONS.md](DECISIONS.md). English: [READ
 
 ## Límites
 
-- Hay que compartir el audio de la pestaña una vez por tema para la onda, el BPM y el clip. Chrome o Edge van mejor que Firefox.
-- YouTube solo acepta las velocidades que expone el player. El sync es una sugerencia, no un beatgrid ni un keylock.
+- El sincronizador es Chrome o Edge, y hay que compartir su pestaña con audio una vez por sesión. `suppressLocalAudioPlayback` es lo que evita que el análisis suene. Firefox y Safari no lo implementan.
+- La pestaña `/sync` tiene que seguir abierta. El audio de la captura mantiene el análisis fuera de foco. Si el navegador mata el video, se reanuda al volver o con Seguir.
+- YouTube solo acepta las velocidades que expone el player. El análisis usa la más alta y corrige el BPM. El sync del fader es una sugerencia, no un beatgrid ni un keylock.
+- En un tema largo la onda es un panorama por tramos, no cada muestra. El BPM sale de una ventana continua (unos 30 s del tema).
 - La playlist depende de `getPlaylist()` (públicas, como mucho 50 temas).
-- El `.webm` de un highlight solo existe para el tramo grabado en el último Analizar.
-- No hay EQ. La biblioteca de cortes no está en la nube: sigue en el navegador.
+- El `.webm` de un highlight solo existe para un tramo capturado antes. El sincronizador nuevo no lo graba.
+- No hay EQ. La cola, la onda y el BPM siguen en este navegador, no en la nube.

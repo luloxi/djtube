@@ -109,6 +109,15 @@ describe('screens', () => {
     expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending', path: '/admin' })).toBe('hold');
   });
 
+  it('keeps /sync behind the same gate as the mixer', () => {
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'approved', path: '/sync' })).toBe('app');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'approved', path: '/sync/' })).toBe('app');
+    expect(screenFor({ ...base, email: OWNER_EMAIL, access: 'blocked', path: '/sync' })).toBe('app');
+    expect(screenFor({ ...base, email: null, access: null, path: '/sync' })).toBe('anonymous');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending', path: '/sync' })).toBe('hold');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'blocked', path: '/sync' })).toBe('hold');
+  });
+
   it('uses the calm copy for people who are waiting or blocked', () => {
     expect(holdMessage('pending')).toBe('Pedí acceso, Luciano te habilita');
     expect(holdMessage('revoked')).toBe('Pedí acceso, Luciano te habilita');

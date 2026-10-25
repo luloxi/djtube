@@ -105,6 +105,20 @@ export async function loadAudio(videoId: string): Promise<Blob | null> {
   }
 }
 
+export async function loadAnalyzedBpm(): Promise<Map<string, number | null>> {
+  try {
+    const rows = await withStore<AnalysisMeta[]>('analyses', 'readonly', (store) => store.getAll());
+    const map = new Map<string, number | null>();
+    for (const row of rows ?? []) {
+      if (!row?.videoId || !Array.isArray(row.peaks) || !row.peaks.length) continue;
+      map.set(row.videoId, typeof row.bpm === 'number' && Number.isFinite(row.bpm) ? row.bpm : null);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 export async function loadCoverages(): Promise<Record<string, AudioCoverage>> {
   try {
     const rows = await withStore<AnalysisMeta[]>('analyses', 'readonly', (store) => store.getAll());

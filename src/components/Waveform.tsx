@@ -35,7 +35,7 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
     try {
       ws = WaveSurfer.create({
         container: host,
-        height: 72,
+        height: Math.max(48, host.clientHeight || 96),
         waveColor: color,
         progressColor: progress,
         cursorColor: '#f4efe6',
@@ -85,7 +85,18 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
     regions.on('region-updated', keepLatest);
     wsRef.current = ws;
     regionsRef.current = regions;
+    let fitted = 0;
+    const fit = () => {
+      const next = Math.floor(host.clientHeight);
+      if (next < 36 || next === fitted) return;
+      fitted = next;
+      ws.setOptions({ height: next });
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(host);
+    fit();
     return () => {
+      observer.disconnect();
       regionsRef.current = null;
       wsRef.current = null;
       ws.destroy();

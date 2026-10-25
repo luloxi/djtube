@@ -5,6 +5,7 @@ import { formatTime } from '../lib/format';
 import { bpmFromTaps } from '../lib/bpm';
 import { clamp01, nudgedRate } from '../lib/mixer';
 import { loadYouTubeAPI } from '../lib/youtube-api';
+import { Icon } from './icons';
 import { Waveform } from './Waveform';
 
 export type DeckHandle = {
@@ -26,13 +27,11 @@ type Props = {
   id: DeckId;
   videoId: string | null;
   title: string;
-  volume: number;
   gain: number;
   playbackRate: number;
   bpm: number | null;
   peaks: number[] | null;
   cueTime: number;
-  onVolume: (volume: number) => void;
   onRate: (rate: number) => void;
   onBpm: (bpm: number | null) => void;
   onCueTime: (seconds: number) => void;
@@ -60,13 +59,11 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     id,
     videoId,
     title,
-    volume,
     gain,
     playbackRate,
     bpm,
     peaks,
     cueTime,
-    onVolume,
     onRate,
     onBpm,
     onCueTime,
@@ -272,7 +269,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
                 /* ignore */
               }
             },
-            onError: () => onStatus('YouTube no deja reproducir este video aquí.'),
+            onError: () => onStatus('Video bloqueado'),
           },
         });
         playerRef.current = player;
@@ -374,7 +371,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     try {
       onDropTrack(JSON.parse(raw) as Track);
     } catch {
-      onStatus('No pude soltar ese tema.');
+      onStatus('No se soltó');
     }
   }
 
@@ -392,11 +389,15 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const waveColor = id === 'A' ? '#7f9e97' : '#c9844a';
   const waveProgress = id === 'A' ? '#d5ebe4' : '#f0d3b4';
 
+  const cueLabel = `Cue ${formatTime(cueTime)}`;
+
   return (
     <article
       className={over ? 'deck over' : 'deck'}
       data-testid={`deck-${id.toLowerCase()}`}
+      data-deck={id}
       data-video-id={videoId ?? ''}
+      aria-label={`Deck ${id}`}
       onDragOver={(event) => {
         event.preventDefault();
         setOver(true);
@@ -405,109 +406,15 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       onDrop={onDrop}
     >
       <header className="deck-head">
-        <strong>Deck {id}</strong>
-        <span className="time">
-          {formatTime(time)} / {formatTime(duration)}
-        </span>
-      </header>
-      {videoId ? (
-        <div className="video-frame" ref={mountRef} />
-      ) : (
-        <div className="video-frame empty">Suelta un tema aquí</div>
-      )}
-      <p className="deck-title" title={title || undefined}>
-        {apiError ? 'No se pudo cargar el reproductor.' : title || (videoId ? videoId : 'Sin tema')}
-      </p>
-      <div className="transport">
-        <button type="button" onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())} disabled={!videoId}>
-          {playing ? 'Pausa' : 'Play'}
-        </button>
-        <button
-          type="button"
-          title={`Cue ${formatTime(cueTime)}`}
-          disabled={!videoId}
-          onClick={() => {
-            try {
-              playerRef.current?.pauseVideo();
-              const length = playerRef.current?.getDuration() ?? 0;
-              if (length > 0) playerRef.current?.seekTo(Math.min(cueRef.current, length), true);
-            } catch {
-              /* ignore */
-            }
-          }}
-        >
-          Cue
-        </button>
-        <button
-          type="button"
-          disabled={!videoId}
-          onClick={() => {
-            try {
-              onCueTime(playerRef.current?.getCurrentTime() ?? 0);
-            } catch {
-              onCueTime(0);
-            }
-          }}
-        >
-          Marcar
-        </button>
-        <button
-          type="button"
-          disabled={!videoId}
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            nudge(-1, true);
-          }}
-          onPointerUp={() => nudge(-1, false)}
-          onPointerCancel={() => nudge(-1, false)}
-        >
-          Nudge −
-        </button>
-        <button
-          type="button"
-          disabled={!videoId}
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            nudge(1, true);
-          }}
-          onPointerUp={() => nudge(1, false)}
-          onPointerCancel={() => nudge(1, false)}
-        >
-          Nudge +
-        </button>
-        <label className="rate">
-          Velocidad
-          <select
-            value={String(rates.includes(playbackRate) ? playbackRate : nearestRate(playbackRate, rates))}
-            disabled={!videoId}
-            onChange={(event) => onRate(Number(event.target.value))}
-          >
-            {rates.map((rate) => (
-              <option key={rate} value={rate}>
-                {rate}×
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <label className="vol">
-        <span>Vol {Math.round(volume * 100)}</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round(volume * 100)}
-          onChange={(event) => onVolume(Number(event.target.value) / 100)}
-          aria-label={`Volumen deck ${id}`}
-        />
-      </label>
-      <div className="bpm-row">
-        <label>
-          BPM
+        <strong>{id}</strong>
+        <p className="deck-title" title={title || undefined}>
+          {apiError ? 'Error' : title}
+        </p>
+        <label className="bpm">
           <input
             inputMode="decimal"
             value={bpm ?? ''}
-            placeholder="—"
+            placeholder="BPM"
             onChange={(event) => {
               const raw = event.target.value.trim();
               if (!raw) {
@@ -520,11 +427,104 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             aria-label={`BPM deck ${id}`}
           />
         </label>
-        <button type="button" onClick={tap} disabled={!videoId}>
-          TAP
-        </button>
+        <span className="time" title={`${formatTime(time)} / ${formatTime(duration)}`}>
+          {formatTime(time)}
+        </span>
+      </header>
+      <div className="deck-top">
+        {videoId ? <div className="video-frame" ref={mountRef} /> : <div className="video-frame empty" />}
+        <div className="transport">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={playing ? 'Pausa' : 'Play'}
+            title={playing ? 'Pausa' : 'Play'}
+            aria-pressed={playing}
+            disabled={!videoId}
+            onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())}
+          >
+            <Icon name={playing ? 'pause' : 'play'} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            title={cueLabel}
+            aria-label={cueLabel}
+            disabled={!videoId}
+            onClick={() => {
+              try {
+                playerRef.current?.pauseVideo();
+                const length = playerRef.current?.getDuration() ?? 0;
+                if (length > 0) playerRef.current?.seekTo(Math.min(cueRef.current, length), true);
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            <Icon name="cue" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            title="Marcar"
+            aria-label="Marcar"
+            disabled={!videoId}
+            onClick={() => {
+              try {
+                onCueTime(playerRef.current?.getCurrentTime() ?? 0);
+              } catch {
+                onCueTime(0);
+              }
+            }}
+          >
+            <Icon name="mark" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            title="Nudge −"
+            aria-label="Nudge −"
+            disabled={!videoId}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              nudge(-1, true);
+            }}
+            onPointerUp={() => nudge(-1, false)}
+            onPointerCancel={() => nudge(-1, false)}
+          >
+            <Icon name="nudge-left" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            title="Nudge +"
+            aria-label="Nudge +"
+            disabled={!videoId}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              nudge(1, true);
+            }}
+            onPointerUp={() => nudge(1, false)}
+            onPointerCancel={() => nudge(1, false)}
+          >
+            <Icon name="nudge-right" />
+          </button>
+          <button type="button" className="icon-button" title="TAP" aria-label="TAP" disabled={!videoId} onClick={tap}>
+            <Icon name="tap" />
+          </button>
+          <RateDrag rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} />
+          <button
+            type="button"
+            className="icon-button"
+            title="Analizar"
+            aria-label="Analizar"
+            disabled={!videoId}
+            onClick={() => window.open('/sync', '_blank', 'noopener')}
+          >
+            <Icon name="analyze" />
+          </button>
+        </div>
       </div>
-      {videoId && !peaks?.length ? <p className="hint">La onda llega del Sincronizador. TAP sigue aquí.</p> : null}
       {duration > 0 ? (
         <Waveform
           peaks={peaks}
@@ -543,7 +543,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           onSelect={(start, end) => setDraft({ start, end })}
         />
       ) : (
-        <div className="wave wave-empty">{videoId ? 'Leyendo duración…' : 'La onda aparece con el video'}</div>
+        <div className="wave wave-empty" />
       )}
       {draft ? (
         <form className="draft" onSubmit={saveDraft}>
@@ -551,17 +551,20 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             {formatTime(draft.start)}–{formatTime(draft.end)}
           </span>
           <input value={label} onChange={(event) => setLabel(event.target.value)} aria-label="Nombre del corte" maxLength={80} />
-          <button type="submit" className="primary">
-            Guardar
+          <button type="submit" className="icon-button primary" title="Guardar" aria-label="Guardar">
+            <Icon name="check" />
           </button>
           <button
             type="button"
+            className="icon-button"
+            title="Cancelar"
+            aria-label="Cancelar"
             onClick={() => {
               setDraft(null);
               setClearToken((value) => value + 1);
             }}
           >
-            Cancelar
+            <Icon name="x" />
           </button>
         </form>
       ) : null}
@@ -572,3 +575,51 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 function nearestRate(desired: number, rates: number[]): number {
   return rates.reduce((best, rate) => (Math.abs(rate - desired) < Math.abs(best - desired) ? rate : best));
 }
+
+function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: number[]; disabled: boolean; onRate: (rate: number) => void }) {
+  const shown = rates.includes(rate) ? rate : nearestRate(rate, rates.length ? rates : [rate]);
+  const index = Math.max(0, rates.indexOf(shown));
+  const drag = useRef<{ x: number; index: number } | null>(null);
+  const label = `Velocidad ${shown}×`;
+  return (
+    <div
+      className="rate-drag"
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      title="Velocidad"
+      aria-label={label}
+      aria-valuemin={rates[0] ?? shown}
+      aria-valuemax={rates[rates.length - 1] ?? shown}
+      aria-valuenow={shown}
+      aria-disabled={disabled}
+      onPointerDown={(event) => {
+        if (disabled || !rates.length) return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.current = { x: event.clientX, index };
+      }}
+      onPointerMove={(event) => {
+        const start = drag.current;
+        if (!start || !rates.length || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        const delta = Math.round((event.clientX - start.x) / 22);
+        const next = rates[Math.min(rates.length - 1, Math.max(0, start.index + delta))];
+        if (next != null) onRate(next);
+      }}
+      onPointerUp={() => {
+        drag.current = null;
+      }}
+      onKeyDown={(event) => {
+        if (disabled) return;
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        event.stopPropagation();
+        const delta = event.key === 'ArrowRight' ? 1 : -1;
+        const next = rates[index + delta];
+        if (next != null) onRate(next);
+      }}
+    >
+      {shown}×
+    </div>
+  );
+}
+
+

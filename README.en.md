@@ -2,11 +2,13 @@
 
 Two YouTube videos, one fader. You beatmatch by ear. The transition is not constant-power: at the center both decks stay at 100%. Far left is only A, far right is only B. Each deck has its own volume; the percentages on the fader are transition × volume.
 
-Desktop first. On a narrow screen the decks stack.
+The mixer fills the viewport (`100dvh`), edge to edge, with no title and no top bar. From 1024px the decks sit side by side: queue and search on the left, highlights on the right (collapsible). Volume A, the crossfader, and volume B are one block under the decks. A bottom icon bar holds the synchronizer, record, admin (owner only), and the account menu, which contains sign out.
 
-Paste a video or playlist URL, or search when the Worker has a YouTube Data API key. Drag or click a track onto deck A or B. Play, pause, cue, nudge, and pick a playback rate the player actually allows. **Auto** glides the fader to the other side over N seconds.
+On a phone the decks stack as 16:9 thumbnails with the fader and play buttons in the first screen. Queue, search, and highlights open from the bottom bar. In landscape the decks sit side by side again.
 
-The iframe does not expose audio, and analyzing inside a deck silences the mix. The waveform icon in the header (**Sincronizador**) opens `/sync` in another tab, behind the same sign-in.
+Paste a video or playlist URL, or search when the Worker has a YouTube Data API key. Drag or click a track onto deck A or B. Play, pause, cue, nudge, and drag the playback rate across the values the player actually allows. **Auto** glides the fader to the other side; drag the seconds. Controls are icons, with the words in the tooltip and `aria-label`. BPM is the large number on each deck. Status text is a short toast.
+
+The iframe does not expose audio, and analyzing inside a deck silences the mix. The waveform icon on the bottom bar (**Sincronizador**) opens `/sync` in another tab, behind the same sign-in. The same icon on a deck opens that tab for the loaded track.
 
 **Empezar** once, in **Chrome or Edge**, and share that tab with audio. The capture uses `{ audio: { suppressLocalAudioPlayback: true }, preferCurrentTab: true, selfBrowserSurface: 'include' }` (plus `video: true`, which `getDisplayMedia` requires). The analysis audio stays in the stream and does not play out of the speakers. Firefox and Safari cannot silence that capture, so the page will not start there.
 
@@ -14,9 +16,9 @@ A small YouTube player walks the queue and the decks. It uses the highest `playb
 
 The list shows queued, analyzing (with progress), ready with BPM, or error with retry, plus pause and overall progress. When the list finishes, the mixer plays a short soft chime and a toast. It chimes again only after a new batch finishes. The sync tab keeps working in the background off the capture's audio clock, not a `setTimeout` loop.
 
-Decks no longer have **Analizar**. TAP and the manual BPM field stay as the fallback. Sync still suggests a `playbackRate` snapped to a rate the player actually allows.
+TAP and the manual BPM field stay as the fallback. When both decks have a BPM, the mixer shows a button that applies a `playbackRate` snapped to a rate the player actually allows.
 
-Drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight `.webm` stays disabled unless that region was captured before — the sync pass does not store a clip, because the audio is sped up. **Grabar** records the mixer tab with `getDisplayMedia` and downloads a `.webm`.
+Drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight `.webm` stays disabled unless that region was captured before — the sync pass does not store a clip, because the audio is sped up. **Grabar** on the bottom bar records the mixer tab with `getDisplayMedia` and downloads a `.webm`.
 
 Highlights, waveforms, and captured audio stay in the browser. The mixer itself asks you to sign in.
 

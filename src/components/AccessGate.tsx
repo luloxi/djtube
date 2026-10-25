@@ -37,11 +37,7 @@ export function AccessGate({ mode, access, email }: { mode: Mode; access?: Acces
   return (
     <main className="gate" data-testid="auth-gate">
       <div className="gate-card">
-        <h1>
-          <span className="tally" aria-hidden="true" />
-          DJTube
-        </h1>
-        {mode === 'loading' ? <p className="tag">…</p> : <p className="tag">El oído manda.</p>}
+        <h1>DJTube</h1>
         {message ? (
           <p className="gate-message" data-testid="auth-message">
             {message}

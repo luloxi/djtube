@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { AnalysisMeta, AudioCoverage, DeckId, DeckModel, Highlight, Track } from './types';
 import { DEFAULT_RATES, emptyDeck } from './types';
 import { Deck, type DeckHandle } from './components/Deck';
-import { Header } from './components/Header';
+import { Icon } from './components/icons';
+import { Header, type SideTab } from './components/Header';
 import { Highlights } from './components/Highlights';
 import { Library } from './components/Library';
 import { SearchBox } from './components/SearchBox';
@@ -29,9 +30,15 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const [coverage, setCoverage] = useState<Record<string, AudioCoverage>>({});
   const [rates, setRates] = useState<Record<DeckId, number[]>>({ A: DEFAULT_RATES, B: DEFAULT_RATES });
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState('Pega un enlace o busca. El fader manda.');
   const [booted, setBooted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+  const [tab, setTab] = useState<SideTab | null>(null);
+  const [cutsOpen, setCutsOpen] = useState(true);
+
+  function setStatus(text: string) {
+    if (!text) return;
+    setToast({ id: Date.now(), text });
+  }
 
   const xRef = useRef(0.5);
   const glideRef = useRef<number | null>(null);
@@ -207,7 +214,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         return;
       }
       if (message.type === 'chime') {
-        setToast({ id: Date.now(), text: 'Cola sincronizada.' });
+        setToast({ id: Date.now(), text: 'Cola lista' });
         const ctx = audioRef.current ?? new AudioContext();
         audioRef.current = ctx;
         void ctx.resume().then(() => playChime(ctx)).catch(() => undefined);
@@ -317,22 +324,22 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       if (at.play) handle?.play();
       else handle?.pause();
       if (at.play) await handle?.seekWhenReady(at.seconds, track.videoId);
-      if (!ready) setStatus('El tema está en el deck, pero el salto al corte tardó demasiado.');
-      else setStatus(at.play ? `Highlight en ${id}.` : `Cue del highlight en ${id}.`);
+      if (!ready) setStatus('Salto tardó');
+      else setStatus(at.play ? `Play ${id}` : `Cue ${id}`);
       return;
     }
-    setStatus(`Cargado en el deck ${id}.`);
+    setStatus(`Deck ${id}`);
   }
 
   async function ingest(raw: string, target: 'queue' | DeckId) {
     const parsed = parseYouTubeUrl(raw);
     if (!parsed) {
-      setStatus('Ese enlace no parece de YouTube.');
+      setStatus('Enlace inválido');
       return;
     }
     if (parsed.playlistId) {
       setBusy(true);
-      setStatus('Leyendo la playlist…');
+      setStatus('Playlist…');
       try {
         const ids = uniqueIds(await readPlaylistIds(parsed.playlistId)).slice(0, 50);
         const tracks = ids.map((id) => trackFromId(id));
@@ -343,9 +350,9 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         void enrichTracks(ids, rename);
         const first = parsed.videoId ? trackFromId(parsed.videoId) : tracks[0];
         if (target !== 'queue' && first) await loadInto(target, first);
-        setStatus(ids.length ? `Playlist: ${Math.min(ids.length, 50)} temas en la cola.` : 'Esa playlist no devolvió temas.');
+        setStatus(ids.length ? `${Math.min(ids.length, 50)} en cola` : 'Playlist vacía');
       } catch {
-        setStatus('No pude leer esa playlist. Prueba con el enlace de un video.');
+        setStatus('Playlist no leída');
         if (parsed.videoId && target !== 'queue') await loadInto(target, trackFromId(parsed.videoId));
       } finally {
         setBusy(false);
@@ -356,7 +363,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     const track = trackFromId(parsed.videoId);
     if (target === 'queue') {
       remember(track);
-      setStatus('Tema en la cola.');
+      setStatus('En cola');
     } else {
       await loadInto(target, track);
     }
@@ -377,7 +384,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       peaks: slicePeaks(deck.peaks ?? [], duration || end, start, end),
     };
     setHighlights((prev) => addHighlight(prev, highlight));
-    setStatus(`Corte «${label}» guardado.`);
+    setStatus('Guardado');
   }
 
   async function downloadHighlight(highlight: Highlight) {
@@ -385,14 +392,14 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     if (!regionHasAudio(cover, highlight.start, highlight.end)) return;
     const blob = await loadAudio(highlight.videoId);
     if (!blob) {
-      setStatus('El audio de ese tema no está en este navegador.');
+      setStatus('Sin audio');
       return;
     }
     try {
       const clip = await sliceBlobToWebm(blob, cover.recordStart, highlight.start, highlight.end);
       downloadBlob(clip, `${highlight.label.replace(/[^\w\-]+/g, '_')}.webm`);
     } catch {
-      setStatus('No pude cortar el audio.');
+      setStatus('Corte falló');
     }
   }
 
@@ -400,63 +407,94 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const shownA = effectiveGain(curve.a, decks.A.volume);
   const shownB = effectiveGain(curve.b, decks.B.volume);
 
+  const leftOpen = tab === 'queue' || tab === 'search';
+
   return (
-    <div className="app" data-testid="app">
-      <Header onStatus={setStatus} owner={owner} onSignOut={onSignOut} />
-      <p className="status" data-testid="status" role="status">
-        {status}
-      </p>
-      <div className="decks">
-        {(['A', 'B'] as const).map((id) => (
-          <Deck
-            key={id}
-            ref={id === 'A' ? deckA : deckB}
-            id={id}
-            videoId={decks[id].videoId}
-            title={decks[id].title}
-            volume={decks[id].volume}
-            gain={id === 'A' ? shownA : shownB}
-            playbackRate={decks[id].playbackRate}
-            bpm={decks[id].bpm}
-            peaks={decks[id].peaks}
-            cueTime={decks[id].cueTime}
-            onVolume={(volume) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], volume } }))}
-            onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
-            onBpm={(bpm) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], bpm } }))}
-            onCueTime={(cueTime) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], cueTime } }))}
-            onTitle={rename}
-            onRates={(next) => setRates((prev) => ({ ...prev, [id]: next }))}
-            onDropTrack={(track) => void loadInto(id, track)}
-            onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
-            onStatus={setStatus}
-          />
-        ))}
+    <div className={cutsOpen ? 'shell' : 'shell cuts-closed'} data-testid="app">
+      <div className="workspace">
+        <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
+          <div className={tab === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
+            <Library tracks={library} busy={busy} onSubmit={(url, target) => void ingest(url, target)} onLoad={(track, id) => void loadInto(id, track)} />
+          </div>
+          <div className={tab === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
+            <SearchBox onLoad={(track, id) => void loadInto(id, track)} onQueue={remember} />
+          </div>
+        </aside>
+        <main className="stage">
+          <div className="decks">
+            {(['A', 'B'] as const).map((id) => (
+              <Deck
+                key={id}
+                ref={id === 'A' ? deckA : deckB}
+                id={id}
+                videoId={decks[id].videoId}
+                title={decks[id].title}
+                gain={id === 'A' ? shownA : shownB}
+                playbackRate={decks[id].playbackRate}
+                bpm={decks[id].bpm}
+                peaks={decks[id].peaks}
+                cueTime={decks[id].cueTime}
+                onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
+                onBpm={(bpm) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], bpm } }))}
+                onCueTime={(cueTime) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], cueTime } }))}
+                onTitle={rename}
+                onRates={(next) => setRates((prev) => ({ ...prev, [id]: next }))}
+                onDropTrack={(track) => void loadInto(id, track)}
+                onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
+                onStatus={setStatus}
+              />
+            ))}
+          </div>
+          <Transition
+            x={x}
+            gainA={shownA}
+            gainB={shownB}
+            volumeA={decks.A.volume}
+            volumeB={decks.B.volume}
+            seconds={seconds}
+            onSeconds={setSeconds}
+            onVolumeA={(volume) => setDecks((prev) => ({ ...prev, A: { ...prev.A, volume } }))}
+            onVolumeB={(volume) => setDecks((prev) => ({ ...prev, B: { ...prev.B, volume } }))}
+            onX={setPosition}
+            onGlide={glide}
+          >
+            <SyncNote
+              bpmA={decks.A.bpm}
+              bpmB={decks.B.bpm}
+              ratesA={rates.A}
+              ratesB={rates.B}
+              onApply={(id, rate) => {
+                setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: rate } }));
+                handleFor(id)?.setRate(rate);
+                setStatus(`${id} ×${rate}`);
+              }}
+            />
+          </Transition>
+        </main>
+        <aside className={tab === 'highlights' ? 'side side-right is-open' : 'side side-right'} aria-label="Cortes">
+          <button
+            type="button"
+            className="icon-button collapse"
+            aria-expanded={cutsOpen}
+            aria-label={cutsOpen ? 'Ocultar cortes' : 'Mostrar cortes'}
+            title={cutsOpen ? 'Ocultar cortes' : 'Mostrar cortes'}
+            onClick={() => setCutsOpen((open) => !open)}
+          >
+            <Icon name={cutsOpen ? 'chevron-right' : 'chevron-left'} />
+          </button>
+          <div className="pane pane-cuts">
+            <Highlights
+              highlights={highlights}
+              coverage={coverage}
+              onChange={setHighlights}
+              onPlay={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
+              onDownload={downloadHighlight}
+              onStatus={setStatus}
+            />
+          </div>
+        </aside>
       </div>
-      <Transition x={x} gainA={shownA} gainB={shownB} seconds={seconds} onSeconds={setSeconds} onX={setPosition} onGlide={glide} />
-      <SyncNote
-        bpmA={decks.A.bpm}
-        bpmB={decks.B.bpm}
-        ratesA={rates.A}
-        ratesB={rates.B}
-        onApply={(id, rate) => {
-          setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: rate } }));
-          handleFor(id)?.setRate(rate);
-          setStatus(`Velocidad del deck ${id}: ×${rate}.`);
-        }}
-      />
-      <div className="panels">
-        <Library tracks={library} busy={busy} onSubmit={(url, target) => void ingest(url, target)} onLoad={(track, id) => void loadInto(id, track)} />
-        <SearchBox onLoad={(track, id) => void loadInto(id, track)} onQueue={remember} />
-        <Highlights
-          highlights={highlights}
-          coverage={coverage}
-          onChange={setHighlights}
-          onPlay={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
-          onDownload={downloadHighlight}
-          onStatus={setStatus}
-        />
-      </div>
-      <footer className="keys">espacio ambos · Q / W cada deck · ← → fader · shift salta más</footer>
+      <Header onStatus={setStatus} owner={owner} onSignOut={onSignOut} tab={tab} onTab={(next) => setTab((current) => (current === next ? null : next))} />
       {toast ? (
         <div className="toast" role="status" data-testid="sync-toast">
           {toast.text}

@@ -1,27 +1,36 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { downloadBlob, stamp } from '../lib/download';
 import { formatTime } from '../lib/format';
+import { Icon } from './icons';
 
 function videoMime(): string | undefined {
   const candidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type));
 }
 
+export type SideTab = 'queue' | 'search' | 'highlights';
+
 export function Header({
   onStatus,
   owner = false,
   onSignOut,
+  tab,
+  onTab,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
   onSignOut?: () => void;
+  tab: SideTab | null;
+  onTab: (tab: SideTab) => void;
 }) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [menu, setMenu] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number>(0);
   const chunks = useRef<Blob[]>([]);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   function cleanup() {
     window.clearInterval(timerRef.current);
@@ -34,7 +43,7 @@ export function Header({
 
   async function start() {
     if (!navigator.mediaDevices?.getDisplayMedia) {
-      onStatus('Este navegador no puede grabar la pantalla.');
+      onStatus('Sin captura');
       return;
     }
     try {
@@ -49,7 +58,7 @@ export function Header({
         const blob = new Blob(chunks.current, { type: recorder.mimeType || 'video/webm' });
         if (blob.size) downloadBlob(blob, `djtube-${stamp()}.webm`);
         cleanup();
-        onStatus(blob.size ? 'Sesión descargada.' : 'La grabación salió vacía.');
+        onStatus(blob.size ? 'Grabación lista' : 'Vacía');
       };
       stream.getVideoTracks()[0]?.addEventListener('ended', () => {
         if (recorder.state !== 'inactive') recorder.stop();
@@ -60,9 +69,9 @@ export function Header({
       setRecording(true);
       const started = Date.now();
       timerRef.current = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 250);
-      onStatus('Grabando la pestaña.');
+      onStatus('Grabando');
     } catch {
-      onStatus('Grabación cancelada.');
+      onStatus('Cancelada');
     }
   }
 
@@ -72,41 +81,65 @@ export function Header({
     else cleanup();
   }
 
+  useEffect(() => {
+    if (!menu) return;
+    const close = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || !accountRef.current?.contains(event.target)) setMenu(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenu(false);
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
+
+  const recLabel = recording ? `Detener ${formatTime(elapsed)}` : 'Grabar';
+
   return (
-    <header className="top">
-      <div>
-        <h1>
-          <span className={recording ? 'tally on' : 'tally'} aria-hidden="true" />
-          DJTube
-        </h1>
-        <p className="tag">El oído manda.</p>
+    <nav className="dock" aria-label="Navegación">
+      <div className="dock-tabs">
+        <button type="button" className="icon-button" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
+          <Icon name="queue" />
+        </button>
+        <button type="button" className="icon-button" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
+          <Icon name="search" />
+        </button>
+        <button type="button" className="icon-button" aria-pressed={tab === 'highlights'} aria-label="Cortes" title="Cortes" onClick={() => onTab('highlights')}>
+          <Icon name="cuts" />
+        </button>
       </div>
-      <div className="top-actions">
-        <a className="icon-button" href="/sync" target="_blank" rel="noopener noreferrer" title="Sincronizador" aria-label="Sincronizador" data-testid="open-sync">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d="M3 13h3.2l1.6-4.2 3.4 8.4 2.2-5.2H21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+      <span className="dock-gap" />
+      <a className="icon-button" href="/sync" target="_blank" rel="noopener noreferrer" title="Sincronizador" aria-label="Sincronizador" data-testid="open-sync">
+        <Icon name="analyze" />
+      </a>
+      <button type="button" className={recording ? 'icon-button rec on' : 'icon-button rec'} aria-label={recLabel} title={recLabel} onClick={recording ? stop : () => void start()}>
+        <Icon name={recording ? 'stop' : 'record'} />
+        {recording ? <span className="rec-time">{formatTime(elapsed)}</span> : null}
+      </button>
+      {owner ? (
+        <a className="icon-button" href="/admin" title="Admin" aria-label="Admin">
+          <Icon name="admin" />
         </a>
-        {owner ? (
-          <a className="text-link" href="/admin">
-            Admin
-          </a>
-        ) : null}
-        {onSignOut ? (
-          <button type="button" onClick={onSignOut}>
-            Salir
+      ) : null}
+      {onSignOut ? (
+        <div className="account" ref={accountRef}>
+          <button type="button" className="icon-button" aria-label="Cuenta" title="Cuenta" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((open) => !open)}>
+            <Icon name="user" />
           </button>
-        ) : null}
-        {recording ? (
-          <button type="button" className="primary" onClick={stop}>
-            Detener {formatTime(elapsed)}
-          </button>
-        ) : (
-          <button type="button" onClick={() => void start()}>
-            Grabar
-          </button>
-        )}
-      </div>
-    </header>
+          {menu ? (
+            <div className="account-menu" role="menu">
+              <button type="button" role="menuitem" aria-label="Salir" title="Salir" onClick={onSignOut}>
+                <Icon name="sign-out" />
+                <span>Salir</span>
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </nav>
   );
 }

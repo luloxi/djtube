@@ -381,7 +381,6 @@ export function SyncPage({ onSignOut }: { onSignOut?: () => void }) {
       <header className="top">
         <div>
           <h1>Sincronizador</h1>
-          <p className="tag">La mezcla no se entera.</p>
         </div>
         <div className="top-actions">
           <a className="text-link" href="/">
@@ -394,9 +393,7 @@ export function SyncPage({ onSignOut }: { onSignOut?: () => void }) {
           ) : null}
         </div>
       </header>
-      <p className="hint">
-        Chrome o Edge. <code>suppressLocalAudioPlayback</code> deja el audio en la captura y lo quita de los altavoces. Firefox y Safari no pueden, y aquí no arranca.
-      </p>
+      <p className="hint">Chrome o Edge. Audio de esta pestaña, sin altavoces.</p>
       <p className="status" role="status">
         {note}
       </p>
@@ -421,9 +418,9 @@ export function SyncPage({ onSignOut }: { onSignOut?: () => void }) {
       >
         <span style={{ width: `${Math.round(progress.ratio * 100)}%` }} />
       </div>
-      {playerReady ? null : <p className="hint">Cargando el reproductor…</p>}
+      {playerReady ? null : <p className="hint">Cargando…</p>}
       <ol className="sync-list">
-        {items.length === 0 ? <li className="hint">La cola está vacía. Agrega temas en el mixer.</li> : null}
+        {items.length === 0 ? <li className="hint">Cola vacía</li> : null}
         {items.map((item) => (
           <li key={item.videoId} className="sync-row" data-state={item.status}>
             <p title={item.title}>{item.title}</p>

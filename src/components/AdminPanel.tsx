@@ -105,7 +105,6 @@ export function AdminPanel() {
       <header className="top">
         <div>
           <h1>Accesos</h1>
-          <p className="tag">Quién entró con Google.</p>
         </div>
         <div className="top-actions">
           <a className="text-link" href="/">

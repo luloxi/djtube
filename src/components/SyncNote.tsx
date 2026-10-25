@@ -10,23 +10,18 @@ type Props = {
 };
 
 export function SyncNote({ bpmA, bpmB, ratesA, ratesB, onApply }: Props) {
-  if (!bpmA || !bpmB) {
-    return <p className="hint sync">Abre el Sincronizador, marca TAP o escribe el BPM de los dos decks.</p>;
-  }
-  if (Math.abs(bpmA - bpmB) < 0.6) {
-    return <p className="hint sync">Los tempos ya coinciden.</p>;
-  }
+  if (!bpmA || !bpmB || Math.abs(bpmA - bpmB) < 0.6) return null;
   const forB = syncPlaybackRate(bpmB, bpmA);
   const forA = syncPlaybackRate(bpmA, bpmB);
   return (
-    <div className="sync">
-      <RateLine deck="B" desired={forB} available={ratesB.length ? ratesB : DEFAULT_RATES} onApply={onApply} />
-      <RateLine deck="A" desired={forA} available={ratesA.length ? ratesA : DEFAULT_RATES} onApply={onApply} />
+    <div className="sync-actions">
+      <RateButton deck="A" desired={forA} available={ratesA.length ? ratesA : DEFAULT_RATES} onApply={onApply} />
+      <RateButton deck="B" desired={forB} available={ratesB.length ? ratesB : DEFAULT_RATES} onApply={onApply} />
     </div>
   );
 }
 
-function RateLine({
+function RateButton({
   deck,
   desired,
   available,
@@ -39,16 +34,10 @@ function RateLine({
 }) {
   if (desired == null) return null;
   const snapped = nearestPlaybackRate(desired, available);
-  const same = Math.abs(snapped - desired) < 0.02;
+  const label = `Igualar ${deck} ×${snapped}`;
   return (
-    <p>
-      <span>
-        {deck} ×{desired.toFixed(3)}
-        {same ? '' : ` · el player usará ×${snapped}`}
-      </span>
-      <button type="button" onClick={() => onApply(deck, snapped)}>
-        Aplicar en {deck}
-      </button>
-    </p>
+    <button type="button" title={label} aria-label={label} onClick={() => onApply(deck, snapped)}>
+      {deck}×{snapped}
+    </button>
   );
 }

@@ -12,6 +12,8 @@ Drag the waveform to save a named highlight. Search, cue, or play it into either
 
 No login. Data stays in the browser.
 
+Live: https://djtube.lucianoolivabianco.workers.dev
+
 ```bash
 pnpm install
 pnpm test

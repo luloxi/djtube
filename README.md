@@ -38,6 +38,8 @@ pnpm dev
 
 ## Deploy
 
+En vivo: https://djtube.lucianoolivabianco.workers.dev
+
 Worker de Cloudflare `djtube`, assets estáticos del build de Vite.
 
 ```bash

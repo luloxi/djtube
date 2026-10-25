@@ -1,6 +1,25 @@
-interface Env {
+import {
+  adminActionStatus,
+  adminApiDecision,
+  adminHttpStatus,
+  appApiDecision,
+  appApiStatus,
+  canUseApp,
+  decideAdminAction,
+  isOwnerEmail,
+  listPeople,
+  mutationOriginAllowed,
+  normalizeEmail,
+  parseAdminAction,
+} from '../src/lib/access';
+import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
+import { authConfig, getAuth, readSession, type AuthEnv } from './auth';
+import type { D1Database } from './d1';
+
+interface Env extends AuthEnv {
   ASSETS: { fetch(input: Request | URL | string): Promise<Response> };
   YT_API_KEY?: string;
+  DB?: D1Database;
 }
 
 type SearchItem = {
@@ -12,24 +31,141 @@ type SearchItem = {
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
+function json(body: unknown, status = 200): Response {
+  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === '/api/search') return search(url, env);
-    if (url.pathname === '/api/oembed') return oembed(url);
-    if (url.pathname === '/api/health') return Response.json({ ok: true });
-    if (url.pathname.startsWith('/api/')) return Response.json({ ok: false, reason: 'not_found' }, { status: 404 });
+    if (url.pathname === '/api/health') return json({ ok: true });
+    if (url.pathname === '/api/auth' || url.pathname.startsWith('/api/auth/')) return handleAuth(request, env);
+    if (url.pathname === '/api/me') return handleMe(request, env);
+    if (url.pathname === '/api/admin/people') return handleAdmin(request, env);
+    if (url.pathname === '/api/search') {
+      const denied = await requireApp(request, env);
+      if (denied) return denied;
+      return search(url, env);
+    }
+    if (url.pathname === '/api/oembed') {
+      const denied = await requireApp(request, env);
+      if (denied) return denied;
+      return oembed(url);
+    }
+    if (url.pathname.startsWith('/api/')) return json({ ok: false, reason: 'not_found' }, 404);
     return env.ASSETS.fetch(request);
   },
 };
 
+async function handleAuth(request: Request, env: Env): Promise<Response> {
+  const auth = getAuth(env);
+  if (!auth) return json({ error: 'Auth is not configured' }, 503);
+  return auth.handler(request);
+}
+
+async function handleMe(request: Request, env: Env): Promise<Response> {
+  const configured = authConfig(env);
+  if (!configured) return json({ configured: false, user: null, access: null, allowed: false, owner: false });
+  const session = await readSession(request, env);
+  if (!session) return json({ configured: true, user: null, access: null, allowed: false, owner: false });
+  let access: string | null = null;
+  if (env.DB) {
+    try {
+      const person = await recordVisit(env.DB, {
+        email: session.email,
+        name: session.name,
+        avatar: session.image,
+        sessionId: session.sessionId,
+      });
+      access = person?.status ?? null;
+    } catch {
+      try {
+        access = (await readPerson(env.DB, session.email))?.status ?? null;
+      } catch {
+        access = null;
+      }
+    }
+  }
+  const email = normalizeEmail(session.email);
+  return json({
+    configured: true,
+    user: { email, name: session.name, image: session.image },
+    access,
+    allowed: canUseApp(email, access),
+    owner: isOwnerEmail(email),
+  });
+}
+
+async function requireApp(request: Request, env: Env): Promise<Response | null> {
+  const configured = authConfig(env);
+  if (!configured) return json({ ok: false, reason: 'unauthorized' }, appApiStatus('unconfigured'));
+  const session = await readSession(request, env);
+  let status: string | null = null;
+  if (session && env.DB) {
+    try {
+      status = (await readPerson(env.DB, session.email))?.status ?? null;
+    } catch {
+      status = null;
+    }
+  }
+  const decision = appApiDecision({ configured: true, email: session?.email, status });
+  if (decision !== 'ok') return json({ ok: false, reason: 'unauthorized' }, appApiStatus(decision));
+  return null;
+}
+
+async function handleAdmin(request: Request, env: Env): Promise<Response> {
+  const configured = authConfig(env);
+  const session = configured ? await readSession(request, env) : null;
+  const gate = adminApiDecision({ configured, email: session?.email });
+  if (gate !== 'ok') return json({ ok: false, reason: gate === 'forbidden' ? 'forbidden' : 'unauthorized' }, adminHttpStatus(gate));
+  if (!env.DB) return json({ ok: false, reason: 'unauthorized' }, 401);
+
+  if (request.method === 'GET') {
+    const q = (new URL(request.url).searchParams.get('q') ?? '').slice(0, 120);
+    try {
+      const people = listPeople(await listAll(env.DB), q).map(publicPerson);
+      return json({ ok: true, people });
+    } catch {
+      return json({ ok: false, reason: 'error' }, 500);
+    }
+  }
+
+  if (request.method !== 'POST') return json({ ok: false, reason: 'method' }, 405);
+  if (!mutationOriginAllowed(request.headers.get('origin'), new URL(request.url).origin)) {
+    return json({ ok: false, reason: 'forbidden' }, 403);
+  }
+  const parsed = parseAdminAction(await request.json().catch(() => null));
+  if (!parsed) return json({ ok: false, reason: 'unknown_action' }, adminActionStatus('unknown_action'));
+
+  let exists = false;
+  try {
+    exists = Boolean(await readPerson(env.DB, parsed.email));
+  } catch {
+    return json({ ok: false, reason: 'error' }, 500);
+  }
+  const decision = decideAdminAction({
+    actorEmail: session?.email,
+    targetEmail: parsed.email,
+    action: parsed.action,
+    targetExists: exists,
+  });
+  if (!decision.ok) return json({ ok: false, reason: decision.reason }, adminActionStatus(decision.reason));
+  try {
+    const updated = await setStatus(env.DB, parsed.email, decision.status);
+    if (!updated) return json({ ok: false, reason: 'not_found' }, 404);
+    return json({ ok: true, person: publicPerson(updated) });
+  } catch {
+    return json({ ok: false, reason: 'error' }, 500);
+  }
+}
+
 async function search(url: URL, env: Env): Promise<Response> {
   if (!env.YT_API_KEY) {
-    return Response.json({ ok: false, reason: 'missing_key', items: [] });
+    return json({ ok: false, reason: 'missing_key', items: [] });
   }
   const probe = url.searchParams.get('probe');
   const q = (url.searchParams.get('q') ?? '').trim().slice(0, 120);
-  if (probe || !q) return Response.json({ ok: true, items: [] });
+  if (probe || !q) return json({ ok: true, items: [] });
 
   const endpoint = new URL('https://www.googleapis.com/youtube/v3/search');
   endpoint.searchParams.set('part', 'snippet');
@@ -41,7 +177,7 @@ async function search(url: URL, env: Env): Promise<Response> {
   try {
     const upstream = await fetch(endpoint);
     if (!upstream.ok) {
-      return Response.json({ ok: false, reason: 'upstream', items: [] });
+      return json({ ok: false, reason: 'upstream', items: [] });
     }
     const data = (await upstream.json()) as {
       items?: Array<{
@@ -65,24 +201,24 @@ async function search(url: URL, env: Env): Promise<Response> {
         thumbnail: thumbs?.medium?.url || thumbs?.default?.url || null,
       });
     }
-    return Response.json({ ok: true, items });
+    return json({ ok: true, items });
   } catch {
-    return Response.json({ ok: false, reason: 'upstream', items: [] });
+    return json({ ok: false, reason: 'upstream', items: [] });
   }
 }
 
 async function oembed(url: URL): Promise<Response> {
   const id = url.searchParams.get('v') ?? '';
-  if (!VIDEO_ID.test(id)) return Response.json({ ok: false });
+  if (!VIDEO_ID.test(id)) return json({ ok: false });
   try {
     const upstream = await fetch(
       `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`,
     );
-    if (!upstream.ok) return Response.json({ ok: false });
+    if (!upstream.ok) return json({ ok: false });
     const data = (await upstream.json()) as { title?: string; thumbnail_url?: string };
-    if (!data.title) return Response.json({ ok: false });
-    return Response.json({ ok: true, title: data.title, thumbnail_url: data.thumbnail_url ?? null });
+    if (!data.title) return json({ ok: false });
+    return json({ ok: true, title: data.title, thumbnail_url: data.thumbnail_url ?? null });
   } catch {
-    return Response.json({ ok: false });
+    return json({ ok: false });
   }
 }

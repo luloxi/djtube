@@ -7,7 +7,15 @@ function videoMime(): string | undefined {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type));
 }
 
-export function Header({ onStatus }: { onStatus: (message: string) => void }) {
+export function Header({
+  onStatus,
+  owner = false,
+  onSignOut,
+}: {
+  onStatus: (message: string) => void;
+  owner?: boolean;
+  onSignOut?: () => void;
+}) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -73,15 +81,27 @@ export function Header({ onStatus }: { onStatus: (message: string) => void }) {
         </h1>
         <p className="tag">El oído manda.</p>
       </div>
-      {recording ? (
-        <button type="button" className="primary" onClick={stop}>
-          Detener {formatTime(elapsed)}
-        </button>
-      ) : (
-        <button type="button" onClick={() => void start()}>
-          Grabar
-        </button>
-      )}
+      <div className="top-actions">
+        {owner ? (
+          <a className="text-link" href="/admin">
+            Admin
+          </a>
+        ) : null}
+        {onSignOut ? (
+          <button type="button" onClick={onSignOut}>
+            Salir
+          </button>
+        ) : null}
+        {recording ? (
+          <button type="button" className="primary" onClick={stop}>
+            Detener {formatTime(elapsed)}
+          </button>
+        ) : (
+          <button type="button" onClick={() => void start()}>
+            Grabar
+          </button>
+        )}
+      </div>
     </header>
   );
 }

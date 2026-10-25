@@ -10,20 +10,34 @@ The iframe does not expose audio. **Analizar** asks you to share this tab with a
 
 Drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight `.webm` download stays disabled (not-allowed cursor, tooltip) unless that region was captured during Analizar. **Grabar** records the tab with `getDisplayMedia` and downloads a `.webm`.
 
-No login. Data stays in the browser.
+Highlights, waveforms, and captured audio stay in the browser. The mixer itself asks you to sign in.
 
 Live: https://djtube.lucianoolivabianco.workers.dev
+
+## Access
+
+Signed-out visitors only see **Entrar con Google**. The OAuth client's redirect URI is exactly:
+
+`https://djtube.lucianoolivabianco.workers.dev/api/auth/callback/google`
+
+`lucianoolivabianco@gmail.com` is the owner and is always allowed. Anyone else is stored (email, name, avatar, first seen, last seen, visit count) as `pending` and sees "Pedí acceso, Luciano te habilita". They never reach the mixer. `/admin` is owner-only: approve, revoke, block, and search. Revoke and block remove access; block shows "Acceso bloqueado".
+
+If `GOOGLE_CLIENT_ID` or `GOOGLE_CLIENT_SECRET` is missing (or the Better Auth secret, or D1), the landing says "Login en configuración" and nobody gets in, including the owner. `/api/search` and the other API routes reject anyone who is not approved.
 
 ```bash
 pnpm install
 pnpm test
 pnpm build
+pnpm exec wrangler d1 migrations apply DB --remote
 pnpm exec wrangler deploy
+pnpm exec wrangler secret put BETTER_AUTH_SECRET
+pnpm exec wrangler secret put GOOGLE_CLIENT_ID
+pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
 pnpm exec wrangler secret put YT_API_KEY
 ```
 
-Do not commit the key. Without it, search shows a hint and URL paste still works. Playlists expand via a hidden IFrame `getPlaylist()` plus oEmbed, not the Data API.
+Do not commit secrets. The D1 database is `djtube`, binding `DB`. Without `YT_API_KEY`, search shows a hint and URL paste still works. Playlists expand via a hidden IFrame `getPlaylist()` plus oEmbed, not the Data API. Search and oEmbed both require an approved session.
 
 Why this was written from scratch: [DECISIONS.md](DECISIONS.md). Spanish guide: [README.md](README.md).
 
-Limits: tab-audio capture once per track; YouTube quantizes speed; sync is not a phase lock; playlists are public and capped at 50; highlight audio exists only for the last analyzed span; no EQ.
+Limits: tab-audio capture once per track; YouTube quantizes speed; sync is not a phase lock; playlists are public and capped at 50; highlight audio exists only for the last analyzed span; no EQ. Highlight data is not stored in the cloud.

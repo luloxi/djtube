@@ -18,7 +18,7 @@ import { mergePeaks, slicePeaks } from './lib/peaks';
 import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds } from './lib/youtube';
 import { readPlaylistIds } from './lib/youtube-api';
 
-export function App() {
+export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?: () => void } = {}) {
   const [x, setX] = useState(0.5);
   const [seconds, setSeconds] = useState(8);
   const [decks, setDecks] = useState<Record<DeckId, DeckModel>>({ A: emptyDeck(), B: emptyDeck() });
@@ -373,7 +373,7 @@ export function App() {
 
   return (
     <div className="app" data-testid="app">
-      <Header onStatus={setStatus} />
+      <Header onStatus={setStatus} owner={owner} onSignOut={onSignOut} />
       <p className="status" data-testid="status" role="status">
         {status}
       </p>

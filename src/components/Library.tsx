@@ -7,7 +7,6 @@ import { QueueSave } from './QueueSave';
 type Props = {
   tracks: Track[];
   loading?: boolean;
-  titleDeck?: DeckId | null;
   compact?: boolean;
   keepIds?: Array<string | null | undefined>;
   onLoad: (track: Track, deck: DeckId) => void;
@@ -15,7 +14,7 @@ type Props = {
   onClear?: () => void;
 };
 
-export function Library({ tracks, loading = false, titleDeck = null, compact = false, keepIds = [], onLoad, onRemove, onClear }: Props) {
+export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove, onClear }: Props) {
   return (
     <section className="panel" aria-label="Cola" aria-busy={loading || undefined}>
       <div className="panel-head">
@@ -39,7 +38,6 @@ export function Library({ tracks, loading = false, titleDeck = null, compact = f
           <TrackRow
             key={track.videoId}
             track={track}
-            titleDeck={titleDeck}
             locked={trackIsLoaded(track.videoId, keepIds)}
             onLoad={onLoad}
             onRemove={onRemove}
@@ -56,13 +54,12 @@ export function TrackRow({
   onLoad,
   onRemove,
   locked = false,
-  titleDeck = null,
+ 
 }: {
   track: Track;
   onLoad: (track: Track, deck: DeckId) => void;
   onRemove?: (track: Track) => void;
   locked?: boolean;
-  titleDeck?: DeckId | null;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const point = useRef<{ id: number; x: number; y: number; kind: string; mode: 'undecided' | 'swipe' | 'ignore'; dx: number } | null>(null);
@@ -195,15 +192,9 @@ export function TrackRow({
         A
       </button>
       {track.thumbnail ? <img src={track.thumbnail} alt="" /> : <span className="thumb" />}
-      {titleDeck ? (
-        <button type="button" className="track-name" title={track.title} onClick={() => onLoad(track, titleDeck)}>
-          {track.title}
-        </button>
-      ) : (
-        <p className="track-name" title={track.title}>
-          {track.title}
-        </p>
-      )}
+      <p className="track-name" title={track.title}>
+        {track.title}
+      </p>
       <button type="button" className="track-add track-add-b" aria-label={`Cargar en deck B: ${track.title}`} title="B" onClick={() => onLoad(track, 'B')}>
         B
       </button>

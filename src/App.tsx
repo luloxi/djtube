@@ -61,7 +61,6 @@ export function App({
   const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
   const [tab, setTab] = useState<SideTab | null>(null);
   const [leftPane, setLeftPane] = useState<'queue' | 'search'>('queue');
-  const [titleDeck, setTitleDeck] = useState<DeckId | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [pending, setPending] = useState(0);
   const [mode, setMode] = useState<AppMode | null>(() => readStoredMode(window.localStorage));
@@ -580,12 +579,6 @@ export function App({
     setTab(next);
   }
 
-  function openList(id: DeckId) {
-    setTitleDeck(id);
-    setLeftPane('queue');
-    setTab('queue');
-  }
-
   return (
     <div className="shell" data-mode={mode} data-testid="app">
       {mode === 'preparar' ? (
@@ -623,7 +616,6 @@ export function App({
             <Library
               tracks={library}
               loading={playlistLoading}
-              titleDeck={titleDeck}
               onLoad={(track, id) => void loadInto(id, track)}
               keepIds={[decks.A.videoId, decks.B.videoId]}
               onRemove={removeQueued}
@@ -672,7 +664,6 @@ export function App({
                 onDropTrack={(track) => void loadInto(id, track)}
                 onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
                 onStatus={setStatus}
-                onOpenList={() => openList(id)}
                 beatOffset={decks[id].beatOffset}
               />
             ))}
@@ -682,7 +673,6 @@ export function App({
               tracks={library}
               loading={playlistLoading}
               compact
-              titleDeck={titleDeck}
               onLoad={(track, id) => void loadInto(id, track)}
               keepIds={[decks.A.videoId, decks.B.videoId]}
               onRemove={removeQueued}
@@ -772,10 +762,7 @@ export function App({
           setKeyOpen(true);
         }}
         onTab={(next) => {
-          if (next === 'queue' || next === 'search') {
-            setLeftPane(next);
-            if (next === 'queue' && !titleDeck) setTitleDeck(null);
-          }
+          if (next === 'queue' || next === 'search') setLeftPane(next);
           setTab((current) => (current === next ? null : next));
         }}
       />

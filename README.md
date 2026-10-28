@@ -6,7 +6,7 @@ La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es la lista
 
 La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda comparten el panel izquierdo y se alternan con iconos (no van apiladas). En DJ el volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: modo, clave de YouTube, admin (solo el dueño) y la cuenta.
 
-En el móvil los dos decks van apilados, con fader y play a la vista, y una raya de color que separa A, B y el fader. Con el disco apagado la miniatura es 16:9; prendido, el video llena el círculo más grande del deck. Cola y búsqueda son dos botones grandes al centro de la barra; cortes a un lado. El icono de lista en cada deck abre la cola: un toque en el nombre carga ese deck. En las filas, A y B van a izquierda y derecha con el color del deck. Si la pantalla es alta, un recorte de la cola queda a la vista. En horizontal, los decks vuelven a ir lado a lado.
+En el móvil los dos decks van apilados, con fader y play a la vista, y una raya de color que separa A, B y el fader. Con el disco apagado la miniatura es 16:9; prendido, el video llena el círculo más grande del deck. Cola y búsqueda son dos botones grandes al centro de la barra; cortes a un lado. En las filas, A y B van a izquierda y derecha con el color del deck. Si la pantalla es alta, un recorte de la cola queda a la vista. En horizontal, los decks vuelven a ir lado a lado.
 
 ## Mezclar
 

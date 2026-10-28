@@ -43,7 +43,6 @@ type Props = {
   onDropTrack: (track: Track) => void;
   onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
-  onOpenList?: () => void;
   beatOffset?: number | null;
 };
 
@@ -75,7 +74,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onDropTrack,
     onSaveHighlight,
     onStatus,
-    onOpenList,
     beatOffset = null,
   } = props;
 
@@ -585,11 +583,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     >
       <header className="deck-head">
         <strong>{id}</strong>
-        {onOpenList ? (
-          <button type="button" className="icon-button" aria-label={`Cola ${id}`} title="Cola" onClick={onOpenList}>
-            <Icon name="queue" />
-          </button>
-        ) : null}
         <p className="deck-title" title={title || undefined}>
           {apiError ? 'Error' : title}
         </p>

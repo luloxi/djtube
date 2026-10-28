@@ -6,6 +6,7 @@ import { formatTime } from '../lib/format';
 import { noteDeckDrop } from '../lib/library';
 import { clamp01, nudgedRate } from '../lib/mixer';
 import { prerollFromState, type PrerollPhase } from '../lib/preload';
+import { readDiscOn, writeDiscOn } from '../lib/disc';
 import { discAngle, jogTarget, jogTransport } from '../lib/jog';
 import { loadYouTubeAPI } from '../lib/youtube-api';
 import { BeatGrid } from './BeatGrid';
@@ -43,8 +44,6 @@ type Props = {
   onStatus: (message: string) => void;
   onOpenList?: () => void;
   beatOffset?: number | null;
-  onStartSynced?: () => void;
-  syncReady?: boolean;
 };
 
 const playerVars = () => ({
@@ -77,8 +76,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onStatus,
     onOpenList,
     beatOffset = null,
-    onStartSynced,
-    syncReady = false,
   } = props;
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -100,6 +97,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [apiError, setApiError] = useState(false);
   const prerollRef = useRef<PrerollPhase>('idle');
   const spinRef = useRef<HTMLDivElement>(null);
+  const slotRef = useRef<HTMLDivElement>(null);
   const joggingRef = useRef(false);
   const jogRef = useRef<{
     pointerId: number;
@@ -113,7 +111,13 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     rate: number;
     seekAt: number;
   } | null>(null);
-  const [disc, setDisc] = useState(true);
+  const [disc, setDisc] = useState(() => {
+    try {
+      return readDiscOn(window.localStorage, id);
+    } catch {
+      return true;
+    }
+  });
   const [jogging, setJogging] = useState(false);
 
   gainRef.current = gain;
@@ -250,12 +254,18 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   }));
 
   useEffect(() => {
-    try {
-      setDisc(window.localStorage.getItem(`djtube-disc-${id}`) !== '0');
-    } catch {
-      setDisc(true);
-    }
-  }, [id]);
+    const slot = slotRef.current;
+    if (!slot) return;
+    const fit = () => {
+      const rect = slot.getBoundingClientRect();
+      const size = Math.min(slot.clientWidth, slot.clientHeight, rect.width, rect.height);
+      if (size > 1) slot.style.setProperty('--disc-size', `${size}px`);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(slot);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!disc) {
@@ -263,15 +273,32 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       return;
     }
     let raf = 0;
-    const tick = () => {
+    let shown = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
       if (!joggingRef.current && spinRef.current) {
-        let media = 0;
-        try {
-          media = playerRef.current?.getCurrentTime() ?? 0;
-        } catch {
-          media = 0;
+        let media = shown;
+        let playingNow = false;
+        const player = playerRef.current;
+        if (player) {
+          try {
+            media = player.getCurrentTime() || 0;
+            playingNow = player.getPlayerState() === 1;
+          } catch {
+            playingNow = false;
+          }
         }
-        spinRef.current.style.transform = `rotate(${discAngle(media)}deg)`;
+        if (!Number.isFinite(media)) media = shown;
+        if (!playingNow) shown = media;
+        else if (Math.abs(media - shown) > 0.45) shown = media;
+        else {
+          const rate = rateRef.current > 0 ? rateRef.current : 1;
+          shown += dt * rate;
+          shown += (media - shown) * Math.min(1, dt * 4);
+        }
+        spinRef.current.style.transform = `rotate(${discAngle(shown)}deg)`;
       }
       raf = requestAnimationFrame(tick);
     };
@@ -541,7 +568,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 
   return (
     <article
-      className={over ? 'deck over' : disc ? 'deck disc-on' : 'deck'}
+      className={['deck', over ? 'over' : '', disc ? 'disc-on' : ''].filter(Boolean).join(' ')}
+      data-disc={disc ? 'on' : 'off'}
+      data-playing={playing ? 'on' : 'off'}
       data-testid={`deck-${id.toLowerCase()}`}
       data-deck={id}
       data-video-id={videoId ?? ''}
@@ -585,9 +614,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         </span>
       </header>
       <div className="deck-top">
-        <div className="video-slot">
+        <div className="video-slot" ref={slotRef}>
           <div
-            className={disc && videoId ? (jogging ? 'video-frame as-disc jogging' : 'video-frame as-disc') : videoId ? 'video-frame' : 'video-frame empty'}
+            className={['video-frame', videoId ? '' : 'empty', disc ? 'as-disc' : '', jogging ? 'jogging' : ''].filter(Boolean).join(' ')}
             onPointerDown={onJogDown}
             onPointerMove={onJogMove}
             onPointerUp={(event) => endJog(event.pointerId)}
@@ -596,10 +625,10 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             <div className="disc-rot" ref={spinRef}>
               <div className="yt-mount" ref={mountRef} />
             </div>
-            {disc && videoId ? <div className="disc-hole" aria-hidden="true" /> : null}
+            {disc ? <div className="disc-hole" aria-hidden="true" /> : null}
           </div>
         </div>
-        <div className="transport">
+        <div className="transport" data-testid={`transport-${id.toLowerCase()}`}>
           <button
             type="button"
             className="icon-button play-btn tone-play"
@@ -628,12 +657,11 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             title="Disco"
             aria-label="Disco"
             aria-pressed={disc}
-            disabled={!videoId}
             onClick={() => {
               setDisc((on) => {
                 const next = !on;
                 try {
-                  window.localStorage.setItem(`djtube-disc-${id}`, next ? '1' : '0');
+                  writeDiscOn(window.localStorage, id, next);
                 } catch {
                   /* ignore */
                 }
@@ -643,18 +671,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           >
             <Icon name="disc" />
           </button>
-          {onStartSynced ? (
-            <button
-              type="button"
-              className="icon-button tone-beat"
-              title="Entrar en beat"
-              aria-label="Entrar en beat"
-              disabled={!videoId || !syncReady}
-              onClick={onStartSynced}
-            >
-              <Icon name="beat" />
-            </button>
-          ) : null}
           <RateDrag rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} />
         </div>
       </div>

@@ -6,24 +6,24 @@ La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es el sincr
 
 La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda comparten el panel izquierdo y se alternan con iconos (no van apiladas). En DJ el volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: modo, grabar, admin (solo el dueño) y la cuenta.
 
-En el móvil los dos decks van apilados, con miniatura 16:9, fader y play a la vista, y una raya de color que separa A, B y el fader. Cola y búsqueda son dos botones grandes al centro de la barra; cortes a un lado. El icono de lista en cada deck abre la cola: un toque en el nombre carga ese deck. En las filas, A y B van a izquierda y derecha con el color del deck. Si la pantalla es alta, un recorte de la cola queda a la vista. En horizontal, los decks vuelven a ir lado a lado.
+En el móvil los dos decks van apilados, con fader y play a la vista, y una raya de color que separa A, B y el fader. Con el disco apagado la miniatura es 16:9; prendido, el video llena el círculo más grande del deck. Cola y búsqueda son dos botones grandes al centro de la barra; cortes a un lado. El icono de lista en cada deck abre la cola: un toque en el nombre carga ese deck. En las filas, A y B van a izquierda y derecha con el color del deck. Si la pantalla es alta, un recorte de la cola queda a la vista. En horizontal, los decks vuelven a ir lado a lado.
 
 ## Mezclar
 
 1. Pega un enlace de video o de playlist, o busca (si el worker tiene secreto).
 2. Carga un tema en A y otro en B. También puedes arrastrar.
-3. En cada deck, play, volver, TAP, disco, entrar en beat y la velocidad van en una sola fila, todos del mismo alto. Volver pausa y busca el inicio (0:00). El BPM es el número de cada deck. El video no tiene fullscreen (`fs: 0`).
+3. En escritorio y en el móvil horizontal, play, volver, TAP, disco y la velocidad van en una sola fila, todos del mismo alto. En el móvil vertical (también ~360 y ~412 de ancho) son exactamente dos filas del mismo tamaño: play, volver, TAP y disco; debajo, − velocidad +. No queda un botón suelto. No hay icono de onda, de sincronizar ni de analizar en esa fila. Volver pausa y busca el inicio (0:00). El BPM es el número de cada deck. El video no tiene fullscreen (`fs: 0`).
 4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra, igual que la onda (clic busca, arrastre marca un corte).
 5. **Auto** (junto al fader) desliza A↔B. Por defecto dura 3 s; los segundos se arrastran.
 6. Cada deck tiene un solo − a la izquierda del número de velocidad y un solo + a la derecha, en cualquier ancho. No hay botones « » al lado. Arrastrar el número sigue valiendo, igual que las flechas del teclado; un toque sin arrastre abre las velocidades que permite YouTube, las altas arriba y las bajas abajo. Arrastrar el disco también busca.
-7. Play es menta, volver lavanda, la velocidad durazno, TAP celeste, el disco manteca y entrar en beat rosa. Al pasar el mouse, al enfocar y al pulsar, cada botón se aclara y brilla en su propio color: no se pone negro. TAP muestra «Tocá al ritmo para medir el BPM» al pasar el mouse y, en el teléfono, al mantenerlo pulsado.
+7. Play es menta, volver lavanda, la velocidad durazno, TAP celeste y el disco manteca. Igualar BPM y entrar en beat, en la barra del fader, son rosa. Al pasar el mouse, al enfocar y al pulsar, cada botón se aclara y brilla en su propio color: no se pone negro. TAP muestra «Tocá al ritmo para medir el BPM» al pasar el mouse y, en el teléfono, al mantenerlo pulsado.
 8. Al cargar un tema, el deck lo precarga (play mudo, pausa en 0) para que el arranque salga más a tiempo.
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
 
 ## Sincronizador, BPM, cortes
 
-El iframe no entrega el audio. Analizar el tema que está sonando, en vivo, no se puede: el iframe es de otro origen, y capturar la pestaña con `suppressLocalAudioPlayback` le saca el audio al set. El análisis va en Preparar, desde la barra de abajo. El deck no tiene botón de analizar.
+El iframe no entrega el audio. Analizar el tema que está sonando, en vivo, no se puede: el iframe es de otro origen, y capturar la pestaña con `suppressLocalAudioPlayback` le saca el audio al set. El análisis va en Preparar, desde la barra de abajo. El deck no tiene botón de analizar ni el icono de onda del sincronizador.
 
 1. En esa pestaña, **Empezar** una vez. Hay que usar **Chrome o Edge** y compartir **esta** pestaña **con audio**. La captura pide `suppressLocalAudioPlayback`: el audio entra al análisis y **no sale por los altavoces**. Firefox y Safari no saben silenciar esa captura, y la página no arranca.
 2. Un reproductor pequeño de YouTube pasa la cola. Usa la velocidad más alta que acepte el video (suele ser ×2) y el BPM detectado se divide por esa velocidad. En temas cortos suena el tema entero. En temas largos, una ventana continua sirve para el BPM y unos saltos arman la onda de toda la duración.
@@ -31,9 +31,9 @@ El iframe no entrega el audio. Analizar el tema que está sonando, en vivo, no s
 4. La lista muestra en cola, analizando (con avance), listo con BPM, o error con reintento. Se puede pausar. Cuando la cola termina, el mixer suena un campanazo corto y muestra un aviso. Solo vuelve a sonar cuando entra trabajo nuevo y ese lote también termina.
 5. Puedes dejar el sincronizador en segundo plano: el reloj es el audio de la captura, no una cadena de `setTimeout`. Si Chrome pausa el video al ocultar la pestaña, al volver se reanuda.
 
-Si el número no convence: **TAP** o edítalo a mano. Con BPM y offset, cada onda muestra la grilla (el downbeat ancla el cero). **Entrar en beat** espera el próximo beat del otro deck y arranca ahí. **Igualar BPM** (se recuerda) acerca el `playbackRate` y vuelve a ×1 en escalones. YouTube solo tiene velocidades discretas. Sin offset, la grilla no se dibuja. Los avisos son un toast corto.
+Si el número no convence: **TAP** o edítalo a mano. Con BPM y offset, cada onda muestra la grilla (el downbeat ancla el cero). **Entrar en beat** está junto al fader (A y B), no en el deck: espera el próximo beat del otro deck y arranca ahí. **Igualar BPM** (se recuerda) acerca el `playbackRate` y vuelve a ×1 en escalones. YouTube solo tiene velocidades discretas. Sin offset, la grilla no se dibuja. Los avisos son un toast corto.
 
-En DJ, el icono de disco de cada deck muestra el video como un disco que gira mientras suena (33⅓). Empieza prendido. Solo queda apagado si en este navegador se apagó (`djtube-disc-A` o `djtube-disc-B` en `0`). Arrastrar busca: hacia adelante sube un momento la velocidad, hacia atrás pausa y busca (YouTube no reproduce al revés). Al soltar vuelve el estado anterior. El video ocupa el alto y el ancho que le caben (16:9, o un cuadrado si el disco está prendido) y los controles quedan pegados debajo.
+En DJ, el video se dibuja dentro de un disco redondo: el círculo más grande que entra en el deck, centrado, en cualquier ancho. Gira mientras ese deck suena (33⅓) y se queda quieto en pausa. Empieza prendido. Una preferencia vieja de disco apagado se tira una sola vez (`djtube-disc-v2`); después, si se apaga, queda en `djtube-disc-A` o `djtube-disc-B` en `0`. Arrastrar busca: hacia adelante sube un momento la velocidad, hacia atrás pausa y busca (YouTube no reproduce al revés). Al soltar vuelve el estado anterior. El video tapa el círculo entero (sin bandas negras) y los controles quedan pegados y compactos debajo.
 
 El micrófono de la barra (apagado por defecto) entra por Web Audio: tono (±12 semitonos), volumen y reverb. Si está prendido al grabar, se mezcla; no abre un segundo micrófono. Si se prende durante la toma, entra igual.
 

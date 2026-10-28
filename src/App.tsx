@@ -743,8 +743,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 onStatus={setStatus}
                 onOpenList={() => openList(id)}
                 beatOffset={decks[id].videoId ? (beatOffsets[decks[id].videoId!] ?? null) : null}
-                syncReady={Boolean(decks[id === 'A' ? 'B' : 'A'].bpm)}
-                onStartSynced={() => startSynced(id)}
               />
             ))}
           </div>
@@ -776,7 +774,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
           >
             <button
               type="button"
-              className="icon-button"
+              className="icon-button tone-beat"
               aria-pressed={nudgeSync}
               aria-label="Igualar BPM"
               title="Igualar BPM"
@@ -794,6 +792,30 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             >
               <Icon name="beat" />
             </button>
+            <span className="beat-pair">
+              <button
+                type="button"
+                className="icon-button tone-beat beat-go"
+                data-deck="A"
+                title="Entrar en beat A"
+                aria-label="Entrar en beat A"
+                disabled={!decks.A.videoId || !decks.B.bpm}
+                onClick={() => startSynced('A')}
+              >
+                <Icon name="beat" size={15} />
+              </button>
+              <button
+                type="button"
+                className="icon-button tone-beat beat-go"
+                data-deck="B"
+                title="Entrar en beat B"
+                aria-label="Entrar en beat B"
+                disabled={!decks.B.videoId || !decks.A.bpm}
+                onClick={() => startSynced('B')}
+              >
+                <Icon name="beat" size={15} />
+              </button>
+            </span>
             <SyncNote
               bpmA={decks.A.bpm}
               bpmB={decks.B.bpm}

@@ -71,3 +71,9 @@ function Root() {
 
 const root = document.getElementById('root');
 if (root) createRoot(root).render(<Root />);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}

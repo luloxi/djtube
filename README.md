@@ -136,3 +136,10 @@ Cada IP tiene un tope por ráfaga en `/api/*` (Workers Rate Limiting, gratis, po
 ## Navegación en neón
 
 El ícono de la app (círculo naranja) aparece en la primera pantalla, donde se elige entre Preparar y DJ, y al comienzo de la barra de abajo. Los botones de navegación no tienen fondo: cada uno es un neón propio y ninguno comparte tono con el deck A (verde azulado) ni con el B (ámbar): Cola azul, Buscar rojo, Preparar amarillo, DJ cian. El que está activo se enciende con su color y un brillo fuerte; los demás quedan atenuados con un brillo leve.
+
+## Cortar (Preparar)
+
+En Preparar elegís la canción: pegás un enlace o buscás, o tocás una de la cola. Se abre un editor a pantalla completa que reparte la canción en filas de 10 s, como líneas de texto, con una marca por segundo y el tiempo al comienzo de cada fila. Arrastrá (mouse o dedo) de un punto a otro, aunque pase por varias filas, para marcar el corte; cerca de los bordes de la pantalla se desplaza solo. Los dos extremos se ajustan arrastrando sus puntas. Un toque sin arrastrar mueve el cabezal. El botón de play escucha solo la selección y se frena al llegar al final. Se guarda con un nombre propio (si queda vacío se usa «canción m:ss»). En la lista de Cortes, el lápiz renombra en el lugar (Enter guarda, Esc cancela) y las tijeras reabren el corte para ajustarlo. Los cortes viven en este navegador (IndexedDB) y se exportan o importan en JSON.
+
+La señal de audio de YouTube no se puede leer desde la página, así que las filas muestran tiempo y no una onda real.
+

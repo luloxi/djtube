@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { DeckId, Highlight } from '../types';
 import { formatTime } from '../lib/format';
-import { exportHighlights, importHighlights, searchHighlights } from '../lib/highlights';
+import { exportHighlights, importHighlights, renameHighlight, searchHighlights } from '../lib/highlights';
 import { downloadBlob } from '../lib/download';
 import { Icon } from './icons';
 import { decodeEntities } from '../lib/html-text';
@@ -11,10 +11,12 @@ type Props = {
   onChange: (next: Highlight[]) => void;
   onPlay: (highlight: Highlight, deck: DeckId, play: boolean) => void;
   onStatus: (message: string) => void;
+  onEdit?: (highlight: Highlight) => void;
 };
 
-export function Highlights({ highlights, onChange, onPlay, onStatus }: Props) {
+export function Highlights({ highlights, onChange, onPlay, onStatus, onEdit }: Props) {
   const [query, setQuery] = useState('');
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const visible = searchHighlights(highlights, query);
 
@@ -66,7 +68,33 @@ export function Highlights({ highlights, onChange, onPlay, onStatus }: Props) {
         {visible.map((highlight) => (
             <article key={highlight.id} className="highlight">
               <p>
-                <strong>{highlight.label}</strong>
+                {renaming?.id === highlight.id ? (
+                  <input
+                    className="cut-rename"
+                    type="text"
+                    aria-label="Nombre del corte"
+                    autoFocus
+                    maxLength={80}
+                    value={renaming.value}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => setRenaming({ id: highlight.id, value: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        onChange(renameHighlight(highlights, highlight.id, renaming.value));
+                        setRenaming(null);
+                      } else if (event.key === 'Escape') {
+                        event.stopPropagation();
+                        setRenaming(null);
+                      }
+                    }}
+                    onBlur={() => {
+                      onChange(renameHighlight(highlights, highlight.id, renaming.value));
+                      setRenaming(null);
+                    }}
+                  />
+                ) : (
+                  <strong>{highlight.label}</strong>
+                )}
                 <span>
                   {decodeEntities(highlight.title)} · {formatTime(highlight.start)}–{formatTime(highlight.end)}
                 </span>
@@ -76,6 +104,14 @@ export function Highlights({ highlights, onChange, onPlay, onStatus }: Props) {
                 <DeckHit icon="cue" deck="A" label="Cue A" onClick={() => onPlay(highlight, 'A', false)} />
                 <DeckHit icon="play" deck="B" label="Play B" onClick={() => onPlay(highlight, 'B', true)} />
                 <DeckHit icon="cue" deck="B" label="Cue B" onClick={() => onPlay(highlight, 'B', false)} />
+                {onEdit ? (
+                  <button type="button" className="icon-button tone-cut" title="Editar corte" aria-label="Editar corte" onClick={() => onEdit(highlight)}>
+                    <Icon name="cuts" size={15} />
+                  </button>
+                ) : null}
+                <button type="button" className="icon-button tone-key" title="Renombrar" aria-label="Renombrar" onMouseDown={(event) => event.preventDefault()} onClick={() => setRenaming({ id: highlight.id, value: highlight.label })}>
+                  <Icon name="edit" size={15} />
+                </button>
                 <button type="button" className="icon-button" title="Borrar" aria-label="Borrar" onClick={() => onChange(highlights.filter((item) => item.id !== highlight.id))}>
                   <Icon name="trash" />
                 </button>

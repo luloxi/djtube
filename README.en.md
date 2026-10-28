@@ -101,3 +101,10 @@ Each IP has a burst cap on `/api/*` (Workers Rate Limiting, free, per Cloudflare
 ## Neon navigation
 
 The app icon (orange circle) shows on the first screen, where you pick Preparar or DJ, and at the start of the bottom bar. Navigation buttons have no fill: each is its own neon and none shares a hue with deck A (teal) or deck B (amber): Cola blue, Buscar red, Preparar yellow, DJ cyan. The active one lights up in its colour with a strong glow; the rest dim with a faint glow.
+
+## Cutting (Preparar)
+
+In Preparar you pick a song: paste a link, search, or tap one from the queue. A full-screen editor lays the song out as rows of 10 s, like lines of text, with a tick per second and the time at the start of each row. Drag (mouse or finger) from one point to another, across as many rows as needed, to mark the cut; near the screen edges it scrolls by itself. Drag either end to fine-tune it. A tap without dragging moves the playhead. Play auditions only the selection and stops at its end. Save with your own name (blank falls back to “song m:ss”). In the Cortes list the pencil renames in place (Enter saves, Esc cancels) and the scissors reopen the cut to adjust it. Cuts live in this browser (IndexedDB) and export or import as JSON.
+
+YouTube's audio signal can't be read from the page, so the rows show time rather than a real waveform.
+

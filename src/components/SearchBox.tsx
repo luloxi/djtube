@@ -4,6 +4,7 @@ import { parseYouTubeUrl } from '../lib/youtube';
 import { fetchSearch } from '../lib/yt-key';
 import { Icon } from './icons';
 import { TrackRow } from './Library';
+import { SongRow } from './SongRow';
 
 type Item = Track & { channel?: string };
 
@@ -16,12 +17,15 @@ export function SearchBox({
   onYouTube,
   onOpenKey,
   onLimited,
+  onPick,
 }: {
   ownKey: string | null;
   onLoad: (track: Track, deck: DeckId) => void;
   onYouTube: (raw: string) => void;
   onOpenKey: () => void;
   onLimited: (reason: 'limit' | 'quota') => void;
+  /** Preparar: a result opens the cut editor instead of loading a deck. */
+  onPick?: (track: Track) => void;
 }) {
   const [mode, setMode] = useState<'loading' | 'ready' | 'nokey' | 'down'>('loading');
   const [query, setQuery] = useState('');
@@ -151,7 +155,7 @@ export function SearchBox({
       ) : null}
       <div className="list">
         {items.map((item) => (
-          <TrackRow key={item.videoId} track={item} onLoad={onLoad} />
+          onPick ? <SongRow key={item.videoId} track={item} onPick={onPick} /> : <TrackRow key={item.videoId} track={item} onLoad={onLoad} />
         ))}
       </div>
     </section>

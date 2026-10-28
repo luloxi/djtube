@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Highlight } from '../types';
-import { addHighlight, exportHighlights, importHighlights, removeHighlight, searchHighlights } from './highlights';
+import { addHighlight, exportHighlights, importHighlights, removeHighlight, renameHighlight, searchHighlights } from './highlights';
 import { slicePeaks } from './peaks';
 
 const sample: Highlight = {
@@ -41,5 +41,16 @@ describe('highlight store', () => {
     const slice = slicePeaks(peaks, 10, 2, 5);
     expect(slice[0]).toBe(2);
     expect(slice[slice.length - 1]).toBe(5);
+  });
+});
+
+describe('rename', () => {
+  it('renames one cut and ignores an empty name', () => {
+    const list = [sample, { ...sample, id: 'h2', label: 'Otro' }];
+    const next = renameHighlight(list, 'h1', '  Drop final  ');
+    expect(next[0]?.label).toBe('Drop final');
+    expect(next[1]?.label).toBe('Otro');
+    expect(list[0]?.label).toBe('Entrada');
+    expect(renameHighlight(list, 'h1', '   ')).toBe(list);
   });
 });

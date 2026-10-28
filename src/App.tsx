@@ -555,6 +555,18 @@ export function App({
           onHighlights={setHighlights}
           onPlayHighlight={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
           onStatus={setStatus}
+          library={library}
+          ownKey={ownKey}
+          onYouTube={onYouTube}
+          onRemember={(track) => {
+            remember(track);
+            if (track.title === track.videoId) void enrichTracks([track.videoId], rename);
+          }}
+          onOpenKey={() => {
+            setLimitNote('');
+            setKeyOpen(true);
+          }}
+          onLimited={explainLimit}
         />
       ) : null}
       {mode === 'dj' ? (

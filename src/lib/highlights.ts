@@ -10,6 +10,12 @@ export function removeHighlight(list: Highlight[], id: string): Highlight[] {
   return list.filter((item) => item.id !== id);
 }
 
+export function renameHighlight(list: Highlight[], id: string, label: string): Highlight[] {
+  const next = label.trim();
+  if (!next) return list;
+  return list.map((item) => (item.id === id ? { ...item, label: next } : item));
+}
+
 export function searchHighlights(list: Highlight[], query: string): Highlight[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return list;

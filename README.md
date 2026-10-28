@@ -45,7 +45,7 @@ Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes bus
 
 La cola se puede vaciar: no saca los temas que están en A o en B. Deslizar una fila a izquierda o derecha (dedo o mouse) también la quita, con una salida corta y un aviso **deshacer**. Si el tema está en A o en B, la fila vuelve sola.
 
-Admin se abre encima de la mezcla, sin desmontar los decks. El dueño ve un contador de pedidos pendientes en el icono (se consulta cada tanto). La campana de admin activa el push en ese teléfono. Quien está en espera puede activarla también. Un pedido nuevo avisa al dueño. Al aprobar, si esa persona se suscribió, también le llega un push, y un mail desde `djtube@lulox.com.ar` cuando Email Sending esté dado de alta. Si el mail falla, la aprobación queda igual. No se tocan los MX ni Email Routing.
+Admin se abre encima de la mezcla, sin desmontar los decks. El dueño ve un contador de pedidos pendientes en el icono (se consulta cada tanto). La campana de admin activa el push en ese teléfono. Quien está en espera puede activarla también. Un pedido nuevo avisa al dueño. Al aprobar, si esa persona se suscribió, también le llega un push, y un mail por Resend desde `DJTube <no-responder@lulox.com.ar>` (o `APPROVAL_FROM`). Si el mail falla, se anota en el log y la aprobación queda igual.
 
 En el menú de cuenta: [Contacto](https://lulox.com.ar/contacto) y el [repo](https://github.com/luloxi/djtube). Se puede instalar como PWA (manifiesto + iconos + service worker). Un aviso ofrece instalar, cerrar, o no mostrar más.
 
@@ -90,9 +90,10 @@ pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
 pnpm exec wrangler secret put YT_API_KEY
 pnpm exec wrangler secret put VAPID_PUBLIC_KEY
 pnpm exec wrangler secret put VAPID_PRIVATE_KEY
+pnpm exec wrangler secret put RESEND_API_KEY
 ```
 
-Los secretos no van en el repo. D1 se llama `djtube` y el binding del worker es `DB`. El mail de aprobación usa el binding `EMAIL` (`djtube@lulox.com.ar`). Hay que dar de alta Email Sending en la zona sin cambiar MX ni Email Routing.
+Los secretos no van en el repo. D1 se llama `djtube` y el binding del worker es `DB`. El mail de aprobación es un `POST` a `https://api.resend.com/emails` con `Authorization: Bearer` y el secreto `RESEND_API_KEY`. El remitente es `DJTube <no-responder@lulox.com.ar>`, salvo que `APPROVAL_FROM` traiga otro. Si Resend falla, el log no incluye el secreto y la aprobación no se deshace.
 
 Sin `YT_API_KEY`, la búsqueda muestra una nota y pegar un enlace sigue funcionando. La playlist no usa esa clave: un iframe oculto llama a `getPlaylist()` y los títulos salen de oEmbed (`/api/oembed`). Esas dos rutas exigen una sesión aprobada.
 

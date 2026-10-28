@@ -28,7 +28,7 @@ On a desktop (1024px and a fine pointer) an optional webcam tile can be shown, a
 
 Drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight `.webm` stays disabled unless that region was captured before — the sync pass does not store a clip, because the audio is sped up. **Grabar** uses `getDisplayMedia` when it exists. Android Chrome has no display capture: it falls back to the microphone with a `MediaRecorder` mime the device reports via `isTypeSupported` (`video/mp4` / `audio/webm`). If nothing can be recorded, the button is disabled.
 
-Clear list keeps whatever is loaded on A or B. Admin opens as a sheet over the mixer so playback is not torn down. The owner sees a pending-request badge on the admin icon (polled). The admin bell opts this phone into Web Push. Someone waiting on the hold screen can opt in too. A new pending account notifies the owner's subscriptions. Approving also pushes that person if they subscribed, and sends mail from `djtube@lulox.com.ar` once Email Sending is onboarded. A failed send does not undo the approval. MX and Email Routing are left alone.
+Clear list keeps whatever is loaded on A or B. Admin opens as a sheet over the mixer so playback is not torn down. The owner sees a pending-request badge on the admin icon (polled). The admin bell opts this phone into Web Push. Someone waiting on the hold screen can opt in too. A new pending account notifies the owner's subscriptions. Approving also pushes that person if they subscribed, and sends mail through Resend from `DJTube <no-responder@lulox.com.ar>` (or `APPROVAL_FROM`). A failed send is logged and does not undo the approval.
 
 The account menu has [contact](https://lulox.com.ar/contacto) and the [repo](https://github.com/luloxi/djtube). The app is installable (manifest, icons, a tiny service worker) with a dismissible prompt (`Cerrar` / `No mostrar más`).
 
@@ -62,9 +62,10 @@ pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
 pnpm exec wrangler secret put YT_API_KEY
 pnpm exec wrangler secret put VAPID_PUBLIC_KEY
 pnpm exec wrangler secret put VAPID_PRIVATE_KEY
+pnpm exec wrangler secret put RESEND_API_KEY
 ```
 
-Do not commit secrets. The D1 database is `djtube`, binding `DB`. Approval mail uses the `EMAIL` binding (`djtube@lulox.com.ar`). Email Sending has to be onboarded on the zone without changing MX or Email Routing. Without `YT_API_KEY`, search shows a hint and URL paste still works. Playlists expand via a hidden IFrame `getPlaylist()` plus oEmbed, not the Data API. Search and oEmbed both require an approved session.
+Do not commit secrets. The D1 database is `djtube`, binding `DB`. Approval mail is a `POST` to `https://api.resend.com/emails` with `Authorization: Bearer` and the `RESEND_API_KEY` secret. The sender is `DJTube <no-responder@lulox.com.ar>` unless `APPROVAL_FROM` is set. A failed send is only logged, and the log does not include the secret. Without `YT_API_KEY`, search shows a hint and URL paste still works. Playlists expand via a hidden IFrame `getPlaylist()` plus oEmbed, not the Data API. Search and oEmbed both require an approved session.
 
 Why this was written from scratch: [DECISIONS.md](DECISIONS.md). Spanish guide: [README.md](README.md).
 

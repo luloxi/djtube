@@ -493,6 +493,12 @@ h2 {
 .tone-speed { --neon: #ff8a1e; --neon-glow: rgba(255, 138, 30, 0.9); }
 .tone-viz { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
 .tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
+/* Navigation: none of these share a hue with deck A (teal) or deck B (amber). */
+.tone-queue { --neon: #4d8dff; --neon-glow: rgba(77, 141, 255, 0.9); }
+.tone-search { --neon: #ff4d5e; --neon-glow: rgba(255, 77, 94, 0.9); }
+.tone-prepare { --neon: #ffd91a; --neon-glow: rgba(255, 217, 26, 0.9); }
+.tone-decks { --neon: #19e6ff; --neon-glow: rgba(25, 230, 255, 0.9); }
+.tone-cut { --neon: #ff3df2; --neon-glow: rgba(255, 61, 242, 0.9); }
 
 button[class*="tone-"],
 .rate-value[class*="tone-"] {
@@ -746,21 +752,29 @@ button[class*="tone-"]:focus-visible,
   width: 56px;
   height: 48px;
   min-width: 56px;
-  background: #1f3d38;
-  color: #d5ebe4;
-}
-.dock-hit.search {
-  background: #4a3518;
-  color: #f0d3b4;
-}
-.dock-hit[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 2px var(--amber);
 }
 
 .dock .icon-button[aria-pressed="true"] {
   color: var(--amber);
   background: #2a241c;
 }
+
+/* Selected nav items light up in their own neon; the others dim but keep a faint glow. */
+.dock .icon-button[class*="tone-"][aria-pressed="true"],
+.side-tabs .icon-button[class*="tone-"][aria-pressed="true"] {
+  color: var(--neon);
+  background: transparent;
+  opacity: 1;
+  filter: drop-shadow(0 0 2px var(--neon)) drop-shadow(0 0 9px var(--neon-glow));
+}
+.dock .icon-button[class*="tone-"][aria-pressed="false"],
+.side-tabs .icon-button[class*="tone-"][aria-pressed="false"] {
+  opacity: 0.5;
+}
+.dock .icon-button[class*="tone-"][aria-pressed="false"]:hover,
+.side-tabs .icon-button[class*="tone-"][aria-pressed="false"]:hover { opacity: 0.9; }
+.dock-logo { width: 26px; height: 26px; margin: 0 4px 0 2px; flex: 0 0 auto; user-select: none; }
+.welcome-logo { width: 112px; height: 112px; user-select: none; filter: drop-shadow(0 0 14px rgba(255, 138, 31, 0.35)); }
 
 .dock .rec {
   display: inline-flex;
@@ -1445,8 +1459,6 @@ button.text-link:hover:not(:disabled) {
     width: 48px;
     height: 48px;
     min-width: 48px;
-    background: #1f3d38;
-    color: #d5ebe4;
   }
 
   .stage { flex: 1 1 auto; min-height: 0; }

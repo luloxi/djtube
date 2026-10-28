@@ -126,7 +126,7 @@ export function SearchBox({
           data-testid="search-hint"
           enterKeyHint="search"
         />
-        <button type="submit" className="icon-button search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar">
+        <button type="submit" className="icon-button tone-search search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar">
           <Icon name="search" />
         </button>
       </form>

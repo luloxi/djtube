@@ -132,3 +132,7 @@ Cada IP tiene un tope por ráfaga en `/api/*` (Workers Rate Limiting, gratis, po
 ## Guardar en YouTube
 
 **Guardar en YouTube** pide el permiso `https://www.googleapis.com/auth/youtube` recién cuando se elige esa opción (Better Auth `linkSocial` con un scope extra; el ingreso normal no cambia). Los tokens quedan en el Worker. Hace falta, en el proyecto de Google Cloud del cliente OAuth de DJTube: **YouTube Data API v3** habilitada y el scope agregado en **Google Auth Platform → Acceso a los datos** (con la app en Prueba, la cuenta tiene que ser usuario de prueba). Cada alta cuesta 50 unidades de cuota (unos 200 temas por día con las 10 000 de base). Sin eso, la hoja igual ofrece los enlaces `watch_videos`.
+
+## Navegación en neón
+
+El ícono de la app (círculo naranja) aparece en la primera pantalla, donde se elige entre Preparar y DJ, y al comienzo de la barra de abajo. Los botones de navegación no tienen fondo: cada uno es un neón propio y ninguno comparte tono con el deck A (verde azulado) ni con el B (ámbar): Cola azul, Buscar rojo, Preparar amarillo, DJ cian. El que está activo se enciende con su color y un brillo fuerte; los demás quedan atenuados con un brillo leve.

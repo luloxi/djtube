@@ -81,23 +81,24 @@ export function Header({
   return (
     <nav className="dock" aria-label="Navegación">
       <div className="dock-modes">
-        <button type="button" className="icon-button" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => {
+        <img className="dock-logo" src="/djtube.svg?v=2" alt="" width={26} height={26} draggable={false} />
+        <button type="button" className="icon-button tone-prepare" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => {
             if (mode === 'dj' && isPlaying?.()) setLeaveAsk(true);
             else onMode('preparar');
           }}
         >
           <Icon name="prepare" />
         </button>
-        <button type="button" className="icon-button" aria-pressed={mode === 'dj'} aria-label="DJ" title="DJ" onClick={() => onMode('dj')}>
+        <button type="button" className="icon-button tone-decks" aria-pressed={mode === 'dj'} aria-label="DJ" title="DJ" onClick={() => onMode('dj')}>
           <Icon name="decks" />
         </button>
       </div>
       {mode === 'dj' ? (
         <div className="dock-main">
-          <button type="button" className="icon-button dock-hit" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
+          <button type="button" className="icon-button dock-hit tone-queue" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
             <Icon name="queue" size={22} />
           </button>
-          <button type="button" className="icon-button dock-hit search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
+          <button type="button" className="icon-button dock-hit tone-search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
             <Icon name="search" size={22} />
           </button>
         </div>

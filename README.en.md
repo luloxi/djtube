@@ -97,3 +97,7 @@ Limits: YouTube audio and video are not separated, stored, or downloaded; the wa
 ## Rate limit
 
 Each IP has a burst cap on `/api/*` (Workers Rate Limiting, free, per Cloudflare location, approximate): 60 requests / 10 s in general, 12 / 10 s on search and playlists (`/api/search`, `/api/playlist`, `/api/youtube/playlist`) and 150 / 10 s on titles (`/api/oembed`). Past the cap the Worker returns `429` with `Retry-After: 10` before touching D1 or YouTube. The owner and accounts marked **Sin límite** in admin are never cut off: the session is only looked up once a cap is hit (max 5 lookups / 10 s per IP). Static assets never reach the Worker. Counters live in `wrangler.jsonc` (`ratelimits`), logic in `worker/ratelimit.ts`.
+
+## Neon navigation
+
+The app icon (orange circle) shows on the first screen, where you pick Preparar or DJ, and at the start of the bottom bar. Navigation buttons have no fill: each is its own neon and none shares a hue with deck A (teal) or deck B (amber): Cola blue, Buscar red, Preparar yellow, DJ cyan. The active one lights up in its colour with a strong glow; the rest dim with a faint glow.

@@ -573,10 +573,10 @@ export function App({
       >
         <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
           <div className="side-tabs">
-            <button type="button" className="icon-button" aria-pressed={leftPane === 'queue'} aria-label="Cola" title="Cola" onClick={() => selectLeft('queue')}>
+            <button type="button" className="icon-button tone-queue" aria-pressed={leftPane === 'queue'} aria-label="Cola" title="Cola" onClick={() => selectLeft('queue')}>
               <Icon name="queue" />
             </button>
-            <button type="button" className="icon-button" aria-pressed={leftPane === 'search'} aria-label="Buscar" title="Buscar" onClick={() => selectLeft('search')}>
+            <button type="button" className="icon-button tone-search" aria-pressed={leftPane === 'search'} aria-label="Buscar" title="Buscar" onClick={() => selectLeft('search')}>
               <Icon name="search" />
             </button>
           </div>

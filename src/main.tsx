@@ -3,8 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AccessGate } from './components/AccessGate';
 import { AdminPanel } from './components/AdminPanel';
-import { SyncPage } from './components/SyncPage';
-import { isAccessStatus, isOwnerEmail, normalizeEmail, normalizePath, screenFor } from './lib/access';
+import { isAccessStatus, isOwnerEmail, normalizeEmail, screenFor } from './lib/access';
 import { signOutAndLeave } from './lib/auth-client';
 import './styles.css';
 
@@ -62,9 +61,6 @@ function Root() {
   });
 
   if (screen === 'admin') return <AdminPanel />;
-  if (screen === 'app' && normalizePath(window.location.pathname) === '/sync') {
-    return <SyncPage onSignOut={() => void signOutAndLeave()} />;
-  }
   if (screen === 'app') return <App owner={isOwnerEmail(me?.email)} onSignOut={() => void signOutAndLeave()} />;
   return <AccessGate mode={screen} access={me?.access} email={me?.email} />;
 }

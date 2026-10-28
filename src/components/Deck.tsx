@@ -44,6 +44,7 @@ type Props = {
   onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
   onOpenList?: () => void;
+  onAnalyze?: () => void;
 };
 
 const playerVars = () => ({
@@ -77,6 +78,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onSaveHighlight,
     onStatus,
     onOpenList,
+    onAnalyze,
   } = props;
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -579,7 +581,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             title="Analizar"
             aria-label="Analizar"
             disabled={!videoId}
-            onClick={() => window.open('/sync', '_blank', 'noopener')}
+            onClick={() => (onAnalyze ? onAnalyze() : window.open('/sync', '_blank', 'noopener'))}
           >
             <Icon name="analyze" />
           </button>

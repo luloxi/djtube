@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { AppMode, PrepararPane } from '../lib/mode';
 import { downloadBlob, stamp } from '../lib/download';
 import { formatTime } from '../lib/format';
 import { detectRecordMode, recorderMime, recordFileExt, type RecordMode } from '../lib/record';
@@ -33,6 +34,18 @@ export function Header({
   onTab,
   onAdmin,
   pending = 0,
+  mode,
+  onMode,
+  prepararPane = 'sync',
+  onPrepararPane,
+  voiceOn = false,
+  onVoice,
+  desktop = false,
+  webcamOn = false,
+  onWebcam,
+  chromeOn = true,
+  onChrome,
+  onResetLayout,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
@@ -41,11 +54,23 @@ export function Header({
   onTab: (tab: SideTab) => void;
   onAdmin?: () => void;
   pending?: number;
+  mode: AppMode;
+  onMode: (mode: AppMode) => void;
+  prepararPane?: PrepararPane;
+  onPrepararPane?: (pane: PrepararPane) => void;
+  voiceOn?: boolean;
+  onVoice?: () => void;
+  desktop?: boolean;
+  webcamOn?: boolean;
+  onWebcam?: () => void;
+  chromeOn?: boolean;
+  onChrome?: () => void;
+  onResetLayout?: () => void;
 }) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [menu, setMenu] = useState(false);
-  const [mode] = useState<RecordMode>(() => liveRecordMode());
+  const [recordMode] = useState<RecordMode>(() => liveRecordMode());
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number>(0);
@@ -62,14 +87,14 @@ export function Header({
   }
 
   async function start() {
-    if (mode === 'none') {
+    if (recordMode === 'none') {
       onStatus('Sin captura');
       return;
     }
     try {
-      let kind: 'display' | 'mic' = mode;
+      let kind: 'display' | 'mic' = recordMode;
       let stream: MediaStream;
-      if (mode === 'display') {
+      if (recordMode === 'display') {
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         } catch (error) {
@@ -133,28 +158,58 @@ export function Header({
     };
   }, [menu]);
 
-  const recOff = mode === 'none';
-  const recLabel = recording ? `Detener ${formatTime(elapsed)}` : recOff ? 'Sin captura' : mode === 'mic' ? 'Grabar mic' : 'Grabar';
+  const recOff = recordMode === 'none';
+  const recLabel = recording ? `Detener ${formatTime(elapsed)}` : recOff ? 'Sin captura' : recordMode === 'mic' ? 'Grabar mic' : 'Grabar';
 
   return (
     <nav className="dock" aria-label="Navegación">
-      <div className="dock-main">
-        <button type="button" className="icon-button dock-hit" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
-          <Icon name="queue" size={22} />
+      <div className="dock-modes">
+        <button type="button" className="icon-button" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => onMode('preparar')}>
+          <Icon name="prepare" />
         </button>
-        <button type="button" className="icon-button dock-hit search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
-          <Icon name="search" size={22} />
+        <button type="button" className="icon-button" aria-pressed={mode === 'dj'} aria-label="DJ" title="DJ" onClick={() => onMode('dj')}>
+          <Icon name="decks" />
         </button>
+        {mode === 'preparar' ? (
+          <>
+            <button type="button" className="icon-button" aria-pressed={prepararPane === 'sync'} aria-label="Sincronizador" title="Sincronizador" onClick={() => onPrepararPane?.('sync')}>
+              <Icon name="analyze" />
+            </button>
+            <button type="button" className="icon-button" aria-pressed={prepararPane === 'cuts'} aria-label="Cortes" title="Cortes" onClick={() => onPrepararPane?.('cuts')}>
+              <Icon name="cuts" />
+            </button>
+            <button type="button" className="icon-button" aria-pressed={prepararPane === 'pads'} aria-label="Pads" title="Pads" onClick={() => onPrepararPane?.('pads')}>
+              <Icon name="pads" />
+            </button>
+          </>
+        ) : null}
       </div>
-      <div className="dock-tabs">
-        <button type="button" className="icon-button" aria-pressed={tab === 'highlights'} aria-label="Cortes" title="Cortes" onClick={() => onTab('highlights')}>
-          <Icon name="cuts" />
-        </button>
-      </div>
+      {mode === 'dj' ? (
+        <div className="dock-main">
+          <button type="button" className="icon-button dock-hit" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
+            <Icon name="queue" size={22} />
+          </button>
+          <button type="button" className="icon-button dock-hit search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
+            <Icon name="search" size={22} />
+          </button>
+        </div>
+      ) : null}
       <span className="dock-gap" />
-      <a className="icon-button" href="/sync" target="_blank" rel="noopener noreferrer" title="Sincronizador" aria-label="Sincronizador" data-testid="open-sync">
-        <Icon name="analyze" />
-      </a>
+      {mode === 'dj' && onVoice ? (
+        <button type="button" className={voiceOn ? 'icon-button on' : 'icon-button'} aria-pressed={voiceOn} aria-label="Micrófono" title="Micrófono" onClick={onVoice}>
+          <Icon name="mic" />
+        </button>
+      ) : null}
+      {desktop && mode === 'dj' && onWebcam ? (
+        <button type="button" className="icon-button" aria-pressed={webcamOn} aria-label="Cámara" title="Cámara" onClick={onWebcam}>
+          <Icon name="camera" />
+        </button>
+      ) : null}
+      {desktop && onChrome ? (
+        <button type="button" className="icon-button" aria-pressed={chromeOn} aria-label={chromeOn ? 'Ocultar menú' : 'Mostrar menú'} title={chromeOn ? 'Ocultar menú' : 'Mostrar menú'} onClick={onChrome}>
+          <Icon name={chromeOn ? 'eye' : 'eye-off'} />
+        </button>
+      ) : null}
       <button
         type="button"
         className={recording ? 'icon-button rec on' : 'icon-button rec'}
@@ -187,6 +242,12 @@ export function Header({
                 <Icon name="code" />
                 <span>Código</span>
               </a>
+              {onResetLayout ? (
+                <button type="button" role="menuitem" aria-label="Restablecer" title="Restablecer" onClick={onResetLayout}>
+                  <Icon name="reset" />
+                  <span>Restablecer</span>
+                </button>
+              ) : null}
               <button type="button" role="menuitem" aria-label="Salir" title="Salir" onClick={onSignOut}>
                 <Icon name="sign-out" />
                 <span>Salir</span>

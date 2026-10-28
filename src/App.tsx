@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AnalysisMeta, AudioCoverage, DeckId, DeckModel, Highlight, Track } from './types';
 import { DEFAULT_RATES, emptyDeck } from './types';
+import { normalizePath } from './lib/access';
+import { readStoredMode, storeMode, type AppMode, type PrepararPane } from './lib/mode';
 import { AdminPanel } from './components/AdminPanel';
 import { Deck, type DeckHandle } from './components/Deck';
 import { Icon } from './components/icons';
 import { Header, type SideTab } from './components/Header';
-import { Highlights } from './components/Highlights';
 import { InstallBanner } from './components/InstallBanner';
 import { Library } from './components/Library';
+import { Preparar } from './components/Preparar';
 import { SearchBox } from './components/SearchBox';
 import { SyncNote } from './components/SyncNote';
 import { Transition } from './components/Transition';
+import { Welcome } from './components/Welcome';
 import { sliceBlobToWebm } from './lib/clip';
 import { playChime } from './lib/chime';
 import { downloadBlob } from './lib/download';
@@ -40,7 +43,16 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const [titleDeck, setTitleDeck] = useState<DeckId | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [pending, setPending] = useState(0);
-  const [cutsOpen, setCutsOpen] = useState(true);
+  const [mode, setMode] = useState<AppMode | null>(() => {
+    if (normalizePath(window.location.pathname) === '/sync') return 'preparar';
+    return readStoredMode(window.localStorage);
+  });
+  const [prepararPane, setPrepararPane] = useState<PrepararPane>('sync');
+
+  function chooseMode(next: AppMode) {
+    setMode(next);
+    storeMode(window.localStorage, next);
+  }
 
   function setStatus(text: string) {
     if (!text) return;
@@ -443,7 +455,15 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const shownA = effectiveGain(curve.a, decks.A.volume);
   const shownB = effectiveGain(curve.b, decks.B.volume);
 
-  const leftOpen = tab === 'queue' || tab === 'search';
+  const leftOpen = mode === 'dj' && (tab === 'queue' || tab === 'search');
+
+  if (!mode) {
+    return (
+      <div className="shell" data-testid="app">
+        <Welcome onPick={chooseMode} />
+      </div>
+    );
+  }
 
   function selectLeft(next: 'queue' | 'search') {
     setLeftPane(next);
@@ -457,7 +477,21 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   }
 
   return (
-    <div className={cutsOpen ? 'shell' : 'shell cuts-closed'} data-testid="app">
+    <div className="shell" data-mode={mode} data-testid="app">
+      {mode === 'preparar' ? (
+        <Preparar
+          pane={prepararPane}
+          tracks={library}
+          highlights={highlights}
+          coverage={coverage}
+          onHighlights={setHighlights}
+          onPlayHighlight={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
+          onDownload={downloadHighlight}
+          onStatus={setStatus}
+          onAdd={(url) => void ingest(url, 'queue')}
+        />
+      ) : null}
+      {mode === 'dj' ? (
       <div className="workspace">
         <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
           <div className="side-tabs">
@@ -505,6 +539,10 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
                 onStatus={setStatus}
                 onOpenList={() => openList(id)}
+                onAnalyze={() => {
+                  setPrepararPane('sync');
+                  chooseMode('preparar');
+                }}
               />
             ))}
           </div>
@@ -545,35 +583,18 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             />
           </Transition>
         </main>
-        <aside className={tab === 'highlights' ? 'side side-right is-open' : 'side side-right'} aria-label="Cortes">
-          <button
-            type="button"
-            className="icon-button collapse"
-            aria-expanded={cutsOpen}
-            aria-label={cutsOpen ? 'Ocultar cortes' : 'Mostrar cortes'}
-            title={cutsOpen ? 'Ocultar cortes' : 'Mostrar cortes'}
-            onClick={() => setCutsOpen((open) => !open)}
-          >
-            <Icon name={cutsOpen ? 'chevron-right' : 'chevron-left'} />
-          </button>
-          <div className="pane pane-cuts">
-            <Highlights
-              highlights={highlights}
-              coverage={coverage}
-              onChange={setHighlights}
-              onPlay={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
-              onDownload={downloadHighlight}
-              onStatus={setStatus}
-            />
-          </div>
-        </aside>
       </div>
+      ) : null}
       <Header
         onStatus={setStatus}
         owner={owner}
         onSignOut={onSignOut}
         tab={tab}
         pending={pending}
+        mode={mode}
+        onMode={chooseMode}
+        prepararPane={prepararPane}
+        onPrepararPane={setPrepararPane}
         onAdmin={() => setAdminOpen(true)}
         onTab={(next) => {
           if (next === 'queue' || next === 'search') {

@@ -38,7 +38,7 @@ function requeueAnalyzing(items: SyncItem[]): SyncItem[] {
   return items.map((item) => (item.status === 'analyzing' ? { ...item, status: 'queued', progress: 0, error: null } : item));
 }
 
-export function SyncPage({ onSignOut }: { onSignOut?: () => void }) {
+export function SyncPage({ onSignOut, embedded = false }: { onSignOut?: () => void; embedded?: boolean }) {
   const [items, setItems] = useState<SyncItem[]>([]);
   const [armed, setArmed] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -377,22 +377,24 @@ export function SyncPage({ onSignOut }: { onSignOut?: () => void }) {
   const chromium = supportsSilentTabCapture(typeof navigator === 'undefined' ? '' : navigator.userAgent);
 
   return (
-    <main className="sync-page" data-testid="sync-page">
-      <header className="top">
-        <div>
-          <h1>Sincronizador</h1>
-        </div>
-        <div className="top-actions">
-          <a className="text-link" href="/">
-            Mixer
-          </a>
-          {onSignOut ? (
-            <button type="button" onClick={onSignOut}>
-              Salir
-            </button>
-          ) : null}
-        </div>
-      </header>
+    <main className={embedded ? 'sync-page embedded' : 'sync-page'} data-testid="sync-page">
+      {embedded ? null : (
+        <header className="top">
+          <div>
+            <h1>Sincronizador</h1>
+          </div>
+          <div className="top-actions">
+            <a className="text-link" href="/">
+              Mixer
+            </a>
+            {onSignOut ? (
+              <button type="button" onClick={onSignOut}>
+                Salir
+              </button>
+            ) : null}
+          </div>
+        </header>
+      )}
       <p className="hint">Chrome o Edge. Audio de esta pestaña, sin altavoces.</p>
       <p className="status" role="status">
         {note}

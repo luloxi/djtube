@@ -28,7 +28,17 @@ export type IconName =
   | 'check'
   | 'x'
   | 'mail'
-  | 'code';
+  | 'code'
+  | 'prepare'
+  | 'decks'
+  | 'pads'
+  | 'disc'
+  | 'mic'
+  | 'camera'
+  | 'beat'
+  | 'reset'
+  | 'eye'
+  | 'eye-off';
 
 const ICONS: Record<IconName, ReactNode> = {
   play: <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />,
@@ -163,6 +173,76 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="m8 8-4 4 4 4" />
       <path d="m16 8 4 4-4 4" />
+    </>
+  ),
+  prepare: (
+    <>
+      <path d="M4 7h10" />
+      <path d="M4 12h16" />
+      <path d="M4 17h7" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="8" cy="17" r="2" />
+    </>
+  ),
+  decks: (
+    <>
+      <rect x="3" y="6" width="7" height="12" rx="1" />
+      <rect x="14" y="6" width="7" height="12" rx="1" />
+    </>
+  ),
+  pads: (
+    <>
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <rect x="14" y="14" width="6" height="6" rx="1" />
+    </>
+  ),
+  disc: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="2" />
+    </>
+  ),
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0" />
+      <path d="M12 17v4" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M3 8h12v10H3z" />
+      <path d="m15 12 6-3v8l-6-3" />
+    </>
+  ),
+  beat: (
+    <>
+      <path d="M4 14v-4" />
+      <path d="M8 18V6" />
+      <path d="M12 16V8" />
+      <path d="M16 18V6" />
+      <path d="M20 14v-4" />
+    </>
+  ),
+  reset: (
+    <>
+      <path d="M4 12a8 8 0 1 0 2.3-5.7" />
+      <path d="M4 4v5h5" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </>
+  ),
+  'eye-off': (
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.5 6.2A10 10 0 0 1 12 6c6 0 10 6 10 6a16 16 0 0 1-3.2 3.6" />
+      <path d="M6.1 6.1C3.6 7.8 2 12 2 12a16 16 0 0 0 6.2 5.2" />
     </>
   ),
 };

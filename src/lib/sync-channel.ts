@@ -33,11 +33,17 @@ function asMeta(value: unknown): AnalysisMeta | null {
   if (typeof value.recordStart !== 'number' || typeof value.recordEnd !== 'number') return null;
   if (!Number.isFinite(value.recordStart) || !Number.isFinite(value.recordEnd)) return null;
   if (typeof value.hasAudio !== 'boolean') return null;
+  let beatOffset: number | null = null;
+  if (value.beatOffset != null) {
+    if (typeof value.beatOffset !== 'number' || !Number.isFinite(value.beatOffset) || value.beatOffset < 0 || value.beatOffset > 24 * 3600) return null;
+    beatOffset = value.beatOffset;
+  }
   return {
     videoId: value.videoId,
     peaks,
     duration: value.duration,
     bpm: value.bpm,
+    beatOffset,
     recordStart: value.recordStart,
     recordEnd: value.recordEnd,
     hasAudio: value.hasAudio,

@@ -18,7 +18,8 @@ import { sliceBlobToWebm } from './lib/clip';
 import { playChime } from './lib/chime';
 import { downloadBlob } from './lib/download';
 import { addHighlight, regionHasAudio } from './lib/highlights';
-import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
+import { pushAnalysis, reconcileAnalysis } from './lib/analysis-sync';
+import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveAnalysis, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clearQueue } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
 import { slicePeaks } from './lib/peaks';
@@ -48,6 +49,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     return readStoredMode(window.localStorage);
   });
   const [prepararPane, setPrepararPane] = useState<PrepararPane>('sync');
+  const [beatOffsets, setBeatOffsets] = useState<Record<string, number | null>>({});
 
   function chooseMode(next: AppMode) {
     setMode(next);
@@ -142,12 +144,13 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     const videoId = decks.A.videoId;
     if (!booted || !videoId) return;
     let cancel = false;
-    void loadAnalysis(videoId).then((meta) => {
+    void reconcileAnalysis(videoId).then((meta) => {
       if (cancel || !meta) return;
       setDecks((prev) => {
         if (prev.A.videoId !== videoId) return prev;
         return { ...prev, A: { ...prev.A, peaks: prev.A.peaks?.length ? prev.A.peaks : meta.peaks, bpm: prev.A.bpm ?? meta.bpm } };
       });
+      setBeatOffsets((prev) => ({ ...prev, [videoId]: meta.beatOffset ?? prev[videoId] ?? null }));
       setCoverage((prev) => ({ ...prev, [videoId]: { recordStart: meta.recordStart, recordEnd: meta.recordEnd, hasAudio: meta.hasAudio } }));
     });
     return () => {
@@ -159,12 +162,13 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     const videoId = decks.B.videoId;
     if (!booted || !videoId) return;
     let cancel = false;
-    void loadAnalysis(videoId).then((meta) => {
+    void reconcileAnalysis(videoId).then((meta) => {
       if (cancel || !meta) return;
       setDecks((prev) => {
         if (prev.B.videoId !== videoId) return prev;
         return { ...prev, B: { ...prev.B, peaks: prev.B.peaks?.length ? prev.B.peaks : meta.peaks, bpm: prev.B.bpm ?? meta.bpm } };
       });
+      setBeatOffsets((prev) => ({ ...prev, [videoId]: meta.beatOffset ?? prev[videoId] ?? null }));
       setCoverage((prev) => ({ ...prev, [videoId]: { recordStart: meta.recordStart, recordEnd: meta.recordEnd, hasAudio: meta.hasAudio } }));
     });
     return () => {
@@ -230,6 +234,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   }
 
   function paintAnalysis(meta: AnalysisMeta, mode: 'fresh' | 'fill') {
+    setBeatOffsets((prev) => ({ ...prev, [meta.videoId]: meta.beatOffset ?? prev[meta.videoId] ?? null }));
     setCoverage((prev) => ({
       ...prev,
       [meta.videoId]: { recordStart: meta.recordStart, recordEnd: meta.recordEnd, hasAudio: meta.hasAudio },
@@ -286,7 +291,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       for (const id of ['A', 'B'] as const) {
         const videoId = decksRef.current[id].videoId;
         if (!videoId) continue;
-        void loadAnalysis(videoId).then((meta) => {
+        void reconcileAnalysis(videoId).then((meta) => {
           if (meta) paintAnalysis(meta, 'fill');
         });
       }
@@ -531,7 +536,25 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 peaks={decks[id].peaks}
                 cueTime={decks[id].cueTime}
                 onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
-                onBpm={(bpm) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], bpm } }))}
+                onBpm={(bpm) => {
+                  const videoId = decksRef.current[id].videoId;
+                  setDecks((prev) => ({ ...prev, [id]: { ...prev[id], bpm } }));
+                  if (!videoId) return;
+                  void loadAnalysis(videoId).then((existing) => {
+                    const next = {
+                      videoId,
+                      peaks: existing?.peaks ?? [],
+                      duration: existing?.duration ?? 0,
+                      bpm,
+                      beatOffset: existing?.beatOffset ?? beatOffsets[videoId] ?? null,
+                      hasAudio: existing?.hasAudio ?? false,
+                      recordStart: existing?.recordStart ?? 0,
+                      recordEnd: existing?.recordEnd ?? existing?.duration ?? 0,
+                      updatedAt: new Date().toISOString(),
+                    };
+                    void saveAnalysis(next).then(() => pushAnalysis(next));
+                  });
+                }}
                 onCueTime={(cueTime) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], cueTime } }))}
                 onTitle={rename}
                 onRates={(next) => setRates((prev) => ({ ...prev, [id]: next }))}

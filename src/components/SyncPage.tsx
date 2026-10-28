@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { pushAnalysis, pullAnalysisList, reconcileAnalysis } from '../lib/analysis-sync';
 import { loadAnalyzedBpm, loadAnalysis, loadLibrary, loadSession, saveAnalysis } from '../lib/idb';
 import { openSyncChannel, parseSyncMessage } from '../lib/sync-channel';
 import { supportsSilentTabCapture, TAB_CAPTURE } from '../lib/sync-capture';
@@ -81,6 +82,12 @@ export function SyncPage({ onSignOut, embedded = false }: { onSignOut?: () => vo
   }
 
   async function reloadFromDb() {
+    const remote = await pullAnalysisList();
+    if (!aliveRef.current) return;
+    for (const row of remote) {
+      const local = await loadAnalysis(row.videoId);
+      if (!local?.peaks?.length) await reconcileAnalysis(row.videoId);
+    }
     const [library, session, analyzed] = await Promise.all([loadLibrary(), loadSession(), loadAnalyzedBpm()]);
     if (!aliveRef.current) return;
     readyRef.current = analyzed;
@@ -140,8 +147,10 @@ export function SyncPage({ onSignOut, embedded = false }: { onSignOut?: () => vo
             peaks: decision.peaks,
             duration: decision.duration,
             bpm: decision.bpm,
+            beatOffset: result.beatOffset,
           });
           await saveAnalysis(meta);
+          void pushAnalysis(meta);
           readyRef.current.set(item.videoId, meta.bpm);
           channelRef.current?.postMessage({ type: 'analysis', meta });
           commit(markReady(itemsRef.current, item.videoId, meta.bpm));

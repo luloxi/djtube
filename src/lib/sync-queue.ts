@@ -184,7 +184,7 @@ export function outcomeFromCapture(input: {
 /** Peaks and BPM from the sync tab. A previously captured clip stays downloadable. */
 export function mergeAnalysis(
   previous: AnalysisMeta | null,
-  incoming: { videoId: string; peaks: number[]; duration: number; bpm: number | null },
+  incoming: { videoId: string; peaks: number[]; duration: number; bpm: number | null; beatOffset?: number | null },
 ): AnalysisMeta {
   const keepAudio = Boolean(previous?.hasAudio);
   const duration = incoming.duration > 0 ? incoming.duration : (previous?.duration ?? 0);
@@ -193,6 +193,8 @@ export function mergeAnalysis(
     peaks: incoming.peaks,
     duration,
     bpm: incoming.bpm ?? previous?.bpm ?? null,
+    beatOffset: incoming.beatOffset !== undefined ? incoming.beatOffset : (previous?.beatOffset ?? null),
+    updatedAt: new Date().toISOString(),
     hasAudio: keepAudio,
     recordStart: keepAudio && previous ? previous.recordStart : 0,
     recordEnd: keepAudio && previous ? previous.recordEnd : duration,

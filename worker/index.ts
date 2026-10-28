@@ -13,7 +13,9 @@ import {
   normalizeEmail,
   parseAdminAction,
 } from '../src/lib/access';
+import { parseAnalysisPut } from '../src/lib/analysis';
 import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
+import { listAnalysis, readAnalysis, upsertAnalysis } from './analysis-db';
 import { authConfig, getAuth, readSession, type AuthEnv } from './auth';
 import type { D1Database } from './d1';
 
@@ -43,6 +45,13 @@ export default {
     if (url.pathname === '/api/auth' || url.pathname.startsWith('/api/auth/')) return handleAuth(request, env);
     if (url.pathname === '/api/me') return handleMe(request, env);
     if (url.pathname === '/api/admin/people') return handleAdmin(request, env);
+    if (url.pathname === '/api/analysis') {
+      const denied = await requireApp(request, env);
+      if (denied) return denied;
+      const session = await readSession(request, env);
+      if (!session) return json({ ok: false, reason: 'unauthorized' }, 401);
+      return handleAnalysis(request, env, normalizeEmail(session.email));
+    }
     if (url.pathname === '/api/search') {
       const denied = await requireApp(request, env);
       if (denied) return denied;
@@ -156,6 +165,33 @@ async function handleAdmin(request: Request, env: Env): Promise<Response> {
     const updated = await setStatus(env.DB, parsed.email, decision.status);
     if (!updated) return json({ ok: false, reason: 'not_found' }, 404);
     return json({ ok: true, person: publicPerson(updated) });
+  } catch {
+    return json({ ok: false, reason: 'error' }, 500);
+  }
+}
+
+async function handleAnalysis(request: Request, env: Env, email: string): Promise<Response> {
+  if (!env.DB || !email) return json({ ok: false, reason: 'unauthorized' }, 401);
+  const url = new URL(request.url);
+  if (request.method === 'GET') {
+    const videoId = url.searchParams.get('videoId') ?? '';
+    try {
+      if (!videoId) return json({ ok: true, items: await listAnalysis(env.DB, email) });
+      if (!/^[\w-]{11}$/.test(videoId)) return json({ ok: false, reason: 'invalid' }, 400);
+      const analysis = await readAnalysis(env.DB, email, videoId);
+      if (!analysis) return json({ ok: false, reason: 'not_found' }, 404);
+      return json({ ok: true, analysis });
+    } catch {
+      return json({ ok: false, reason: 'error' }, 500);
+    }
+  }
+  if (request.method !== 'PUT') return json({ ok: false, reason: 'method' }, 405);
+  if (!mutationOriginAllowed(request.headers.get('origin'), url.origin)) return json({ ok: false, reason: 'forbidden' }, 403);
+  const parsed = parseAnalysisPut(await request.json().catch(() => null));
+  if (!parsed) return json({ ok: false, reason: 'invalid' }, 400);
+  try {
+    const analysis = await upsertAnalysis(env.DB, email, parsed);
+    return json({ ok: true, analysis });
   } catch {
     return json({ ok: false, reason: 'error' }, 500);
   }

@@ -38,6 +38,9 @@ export type AnalysisMeta = AudioCoverage & {
   peaks: number[];
   duration: number;
   bpm: number | null;
+  /** Seconds of the first downbeat. Missing on rows saved before the grid existed. */
+  beatOffset?: number | null;
+  updatedAt?: string;
 };
 
 export type SessionState = {

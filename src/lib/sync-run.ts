@@ -1,4 +1,4 @@
-import { estimateBpmFromBlob } from './analyze';
+import { estimateTempoFromBlob } from './analyze';
 import { highestPlaybackRate } from './bpm';
 import { createScanner, planScan, stepScanner, type Scanner } from './sync-scan';
 
@@ -34,6 +34,7 @@ export type AnalyzeEnv = {
 export type AnalyzeResult = {
   peaks: number[];
   bpm: number | null;
+  beatOffset: number | null;
   duration: number;
   playbackRate: number;
 };
@@ -202,7 +203,7 @@ function listenScan(
   env: AnalyzeEnv,
   duration: number,
   desiredRate: number,
-): Promise<{ peaks: number[]; playbackRate: number; bpm: Promise<number | null> }> {
+): Promise<{ peaks: number[]; playbackRate: number; tempo: { bpm: number | null; beatOffset: number | null } }> {
   const plan = planScan(duration);
   const created = createScanner(plan);
   let scanner: Scanner = created.scanner;
@@ -218,7 +219,8 @@ function listenScan(
   let recording = false;
   let recorder: { stop: () => Promise<Blob | null> } | null = null;
   let observedRate = desiredRate;
-  let bpmPromise: Promise<number | null> = Promise.resolve(null);
+  let recordMedia = 0;
+  let tempoPromise: Promise<{ bpm: number | null; beatOffset: number | null }> = Promise.resolve({ bpm: null, beatOffset: null });
   let stalled = 0;
   let lastTime = playerTime(env.player);
   let nudges = 0;
@@ -242,7 +244,14 @@ function listenScan(
       recorder = null;
       recording = false;
       const rate = observedRate > 0 ? observedRate : desiredRate;
-      bpmPromise = pending.then((blob) => (blob && blob.size > 800 ? estimateBpmFromBlob(blob, rate) : null)).catch(() => null);
+      const anchor = recordMedia;
+      tempoPromise = pending
+        .then((blob) => (blob && blob.size > 800 ? estimateTempoFromBlob(blob, rate) : { bpm: null, beatOffset: null }))
+        .then((read) => ({
+          bpm: read.bpm,
+          beatOffset: read.beatOffset == null ? null : Math.round((anchor + read.beatOffset) * 1000) / 1000,
+        }))
+        .catch(() => ({ bpm: null, beatOffset: null }));
     };
 
     env.ticks.set((tick) => {
@@ -295,6 +304,7 @@ function listenScan(
         if (!(current > 0) || Math.abs(current - desiredRate) > 0.05) applyRate(env.player, desiredRate);
         if (!recording) {
           recording = true;
+          recordMedia = playerTime(env.player);
           recorder = openRecorder(env.stream);
         }
       }
@@ -322,16 +332,20 @@ function listenScan(
     });
   });
 
-  return peaks.then((value) => ({ peaks: value, playbackRate: observedRate > 0 ? observedRate : desiredRate, bpm: bpmPromise }));
+  return peaks.then(async (value) => {
+    const tempo = await tempoPromise;
+    return { peaks: value, playbackRate: observedRate > 0 ? observedRate : desiredRate, tempo };
+  });
 }
 
 export async function analyzeVideo(videoId: string, env: AnalyzeEnv): Promise<AnalyzeResult> {
   const prepared = await preparePlayback(env, videoId);
   const scan = await listenScan(env, prepared.duration, prepared.rate);
-  const bpm = await scan.bpm;
+  const tempo = await scan.tempo;
   return {
     peaks: scan.peaks,
-    bpm,
+    bpm: tempo.bpm,
+    beatOffset: tempo.beatOffset,
     duration: prepared.duration,
     playbackRate: scan.playbackRate,
   };

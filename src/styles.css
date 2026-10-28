@@ -767,6 +767,11 @@ button.tone-speed:hover:not(:disabled),
     inset: 0;
     display: block;
     overflow: visible;
+    /* Covers sibling panels. Only the slots inside should take hits. */
+    pointer-events: none;
+  }
+  .workspace.is-free .stage-free .slot {
+    pointer-events: auto;
   }
   .workspace.is-free .decks-free { display: contents; }
   .slot {

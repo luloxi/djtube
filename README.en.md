@@ -2,7 +2,7 @@
 
 Two YouTube videos, one fader. You beatmatch by ear. The transition is not constant-power: at the center both decks stay at 100%. Far left is only A, far right is only B. Each deck has its own volume; the percentages on the fader are transition × volume.
 
-The first visit asks for **Preparar** or **DJ**. They never show together. Preparar is the highlight list. There are no pads, no hot cues, and no audio capture. DJ is the two decks and the mixer. The choice is stored in `djtube-mode` and switched from the bottom bar.
+The first visit asks for **Preparar** or **DJ**. They never show together. Preparar is the highlight list. There are no pads, no hot cues, and no audio capture. DJ is the two decks and the mixer. The choice is stored in `djtube-mode` and switched from the bottom bar. If something is playing, going to Preparar asks for confirmation because it stops the music.
 
 The mixer fills the viewport (`100dvh`), edge to edge, with no title and no top bar. From 1024px the decks sit side by side: queue and search share the left slot and switch with icons (not stacked). In DJ, volume A, the crossfader, and volume B are one block under the decks. A bottom icon bar holds the mode, the YouTube key, admin (owner only), and the account menu.
 
@@ -16,7 +16,7 @@ BPM is by ear: **TAP** or the number field. Setting a BPM lines the downbeat up 
 
 In DJ, the video is drawn inside a round disc: the largest circle that fits in the deck, centered, at every breakpoint. It spins while that deck is playing (33⅓) and holds still while paused. It starts on. A saved off flag from before is dropped once (`djtube-disc-v2`); after that, turning it off stores `djtube-disc-A` or `djtube-disc-B` as `0`. Dragging seeks: forward raises the rate briefly, backward pauses and seeks (YouTube cannot play in reverse). Release restores the previous transport. The picture covers the circle (no black bars inside the platter) and the controls stay tight underneath.
 
-The dock microphone (off by default) goes through Web Audio: pitch (±12 semitones), volume, and reverb. It is the person's own mic, not YouTube audio.
+The dock microphone (desktop only, hidden on phones and tablets; off by default) goes through Web Audio: pitch (±12 semitones), volume, and reverb. It is the person's own mic, not YouTube audio.
 
 On a desktop (1024px and a fine pointer) the queue, the two decks, and the mixer are one grid. Dragging a divider gives the space to its neighbour: a wider queue shrinks both decks, a wider deck shrinks the other, a taller mixer shrinks the deck row. Nothing overflows the desk or overlaps. Resizing the window clamps the saved layout again, including an older layout that was larger than the screen. The webcam, when it is on, floats above the grid and stays inside the desk. The layout is `djtube-layout`. **Restablecer** is in the account menu. The bottom bar cannot be hidden. Phones keep the fixed grid.
 

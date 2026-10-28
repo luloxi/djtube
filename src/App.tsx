@@ -158,6 +158,16 @@ export function App({
     });
   }
 
+  function anyPlaying(): boolean {
+    return (['A', 'B'] as DeckId[]).some((id) => {
+      try {
+        return handleFor(id)?.getPlayer()?.getPlayerState() === 1;
+      } catch {
+        return false;
+      }
+    });
+  }
+
   function chooseMode(next: AppMode) {
     setMode(next);
     storeMode(window.localStorage, next);
@@ -751,6 +761,7 @@ export function App({
         pending={pending}
         mode={mode}
         onMode={chooseMode}
+        isPlaying={anyPlaying}
         desktop={desktop}
         webcamOn={webcamOn}
         onWebcam={toggleWebcam}

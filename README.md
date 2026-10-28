@@ -2,7 +2,7 @@
 
 Dos videos de YouTube, un fader. Mezcla a oído: el crossfader no es una curva de potencia constante, en el centro suenan los dos al 100%.
 
-La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es la lista de cortes. No hay pads, ni hot cues, ni captura de audio. DJ es los dos decks y el mixer. La elección queda en `djtube-mode` y se cambia desde la barra de abajo.
+La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es la lista de cortes. No hay pads, ni hot cues, ni captura de audio. DJ es los dos decks y el mixer. La elección queda en `djtube-mode` y se cambia desde la barra de abajo. Si algo está sonando, ir a Preparar pide confirmación porque corta la música.
 
 La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda comparten el panel izquierdo y se alternan con iconos (no van apiladas). En DJ el volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: modo, clave de YouTube, admin (solo el dueño) y la cuenta.
 
@@ -29,7 +29,7 @@ El BPM se pone a oído: **TAP** o el número a mano. Al fijar un BPM, si todaví
 
 En DJ, el video se dibuja dentro de un disco redondo: el círculo más grande que entra en el deck, centrado, en cualquier ancho. Gira mientras ese deck suena (33⅓) y se queda quieto en pausa. Empieza prendido. Una preferencia vieja de disco apagado se tira una sola vez (`djtube-disc-v2`); después, si se apaga, queda en `djtube-disc-A` o `djtube-disc-B` en `0`. Arrastrar busca: hacia adelante sube un momento la velocidad, hacia atrás pausa y busca (YouTube no reproduce al revés). Al soltar vuelve el estado anterior. El video tapa el círculo entero (sin bandas negras) y los controles quedan pegados y compactos debajo.
 
-El micrófono de la barra (apagado por defecto) entra por Web Audio: tono (±12 semitonos), volumen y reverb. Es el micrófono de quien mezcla, no el audio de YouTube.
+El micrófono de la barra (solo en escritorio; no aparece en celulares ni tablets; apagado por defecto) entra por Web Audio: tono (±12 semitonos), volumen y reverb. Es el micrófono de quien mezcla, no el audio de YouTube.
 
 En escritorio (1024px y puntero fino) la cola, los dos decks y el mixer son una sola grilla. Arrastrar un borde reparte el lugar: la cola más ancha achica los dos decks, un deck más ancho achica al otro, el mixer más alto achica la fila de decks. Nada se sale de la mesa ni se pisa. Al cambiar el tamaño de la ventana, lo guardado se vuelve a encajar, también si venía de un layout viejo más grande que la pantalla. La cámara, si está prendida, flota encima y también queda dentro de la mesa. El layout queda en `djtube-layout`. **Restablecer** está en la cuenta. La barra de abajo no se esconde. En el teléfono la grilla fija no se mueve.
 

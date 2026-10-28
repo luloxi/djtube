@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AppMode } from '../lib/mode';
 import { Icon } from './icons';
+import { PreparModal } from './PreparModal';
 import { PushToggle } from './PushToggle';
 import { VoiceControl, type VoiceMix } from './VoiceControl';
 
@@ -30,6 +31,7 @@ export function Header({
   onWebcam,
   onResetLayout,
   onOpenKey,
+  isPlaying,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
@@ -51,8 +53,10 @@ export function Header({
   onWebcam?: () => void;
   onResetLayout?: () => void;
   onOpenKey: () => void;
+  isPlaying?: () => boolean;
 }) {
   const [menu, setMenu] = useState(false);
+  const [leaveAsk, setLeaveAsk] = useState(false);
   const voiceMix = useRef<VoiceMix>({ stream: null, ctx: null });
   const accountRef = useRef<HTMLDivElement>(null);
   const unlimited = access === 'approved' || owner;
@@ -77,7 +81,11 @@ export function Header({
   return (
     <nav className="dock" aria-label="Navegación">
       <div className="dock-modes">
-        <button type="button" className="icon-button" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => onMode('preparar')}>
+        <button type="button" className="icon-button" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => {
+            if (mode === 'dj' && isPlaying?.()) setLeaveAsk(true);
+            else onMode('preparar');
+          }}
+        >
           <Icon name="prepare" />
         </button>
         <button type="button" className="icon-button" aria-pressed={mode === 'dj'} aria-label="DJ" title="DJ" onClick={() => onMode('dj')}>
@@ -95,7 +103,7 @@ export function Header({
         </div>
       ) : null}
       <span className="dock-gap" />
-      {mode === 'dj' ? <VoiceControl mix={voiceMix} onStatus={onStatus} /> : null}
+      {desktop && mode === 'dj' ? <VoiceControl mix={voiceMix} onStatus={onStatus} /> : null}
       {desktop && mode === 'dj' && onWebcam ? (
         <button type="button" className="icon-button" aria-pressed={webcamOn} aria-label="Cámara" title="Cámara" onClick={onWebcam}>
           <Icon name="camera" />
@@ -159,6 +167,15 @@ export function Header({
           </div>
         ) : null}
       </div>
+      {leaveAsk ? (
+        <PreparModal
+          onStay={() => setLeaveAsk(false)}
+          onGo={() => {
+            setLeaveAsk(false);
+            onMode('preparar');
+          }}
+        />
+      ) : null}
     </nav>
   );
 }

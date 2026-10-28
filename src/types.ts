@@ -13,9 +13,6 @@ export type DeckModel = {
   volume: number;
   cueTime: number;
   playbackRate: number;
-  bpm: number | null;
-  /** Seconds of the downbeat the user lined up. Not read from audio. */
-  beatOffset: number | null;
   peaks: number[] | null;
 };
 
@@ -44,8 +41,6 @@ export function emptyDeck(): DeckModel {
     volume: 1,
     cueTime: 0,
     playbackRate: 1,
-    bpm: null,
-    beatOffset: null,
     peaks: null,
   };
 }

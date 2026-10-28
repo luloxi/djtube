@@ -5,7 +5,6 @@ import {
   formatPercent,
   nearestPlaybackRate,
   nudgedRate,
-  syncPlaybackRate,
   transitionGain,
 } from './mixer';
 
@@ -27,14 +26,7 @@ describe('transition gain', () => {
   });
 });
 
-describe('sync rate', () => {
-  it('suggests the rate that moves one deck onto the other tempo', () => {
-    expect(syncPlaybackRate(128, 120)).toBeCloseTo(0.938, 3);
-    expect(syncPlaybackRate(100, 140)).toBeCloseTo(1.4, 3);
-    expect(syncPlaybackRate(0, 120)).toBeNull();
-    expect(syncPlaybackRate(128, Number.NaN)).toBeNull();
-  });
-
+describe('playback rates', () => {
   it('snaps to a rate the YouTube player actually exposes', () => {
     expect(nearestPlaybackRate(0.938, DEFAULT_RATES)).toBe(1);
     expect(nearestPlaybackRate(1.4, DEFAULT_RATES)).toBe(1.5);

@@ -1,8 +1,7 @@
-import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useEffect, useId, useLayoutEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { DeckId, Track } from '../types';
 import { DEFAULT_RATES } from '../types';
-import { bpmFromTaps } from '../lib/bpm';
 import { formatTime } from '../lib/format';
 import { noteDeckDrop } from '../lib/library';
 import { clamp01, nudgedRate } from '../lib/mixer';
@@ -10,9 +9,9 @@ import { prerollFromState, type PrerollPhase } from '../lib/preload';
 import { readDiscOn, writeDiscOn } from '../lib/disc';
 import { discAngle, jogTarget, jogTransport } from '../lib/jog';
 import { loadYouTubeAPI } from '../lib/youtube-api';
-import { BeatGrid } from './BeatGrid';
 import { Icon } from './icons';
 import { Waveform } from './Waveform';
+import { decodeEntities } from '../lib/html-text';
 
 export type DeckHandle = {
   play: () => void;
@@ -34,16 +33,12 @@ type Props = {
   title: string;
   gain: number;
   playbackRate: number;
-  bpm: number | null;
   peaks: number[] | null;
   onRate: (rate: number) => void;
-  onBpm: (bpm: number | null) => void;
   onTitle: (videoId: string, title: string) => void;
-  onRates: (rates: number[]) => void;
   onDropTrack: (track: Track) => void;
   onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
-  beatOffset?: number | null;
 };
 
 const playerVars = () => ({
@@ -65,16 +60,12 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     title,
     gain,
     playbackRate,
-    bpm,
     peaks,
     onRate,
-    onBpm,
     onTitle,
-    onRates,
     onDropTrack,
     onSaveHighlight,
     onStatus,
-    beatOffset = null,
   } = props;
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -83,7 +74,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const gainRef = useRef(gain);
   const rateRef = useRef(playbackRate);
   const ratesRef = useRef<number[]>(DEFAULT_RATES);
-  const taps = useRef<number[]>([]);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -118,6 +108,8 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     }
   });
   const [jogging, setJogging] = useState(false);
+  const [scrub, setScrub] = useState<number | null>(null);
+  const scrubRef = useRef<{ wasPlaying: boolean; seekAt: number; muted: boolean; idle: number | null } | null>(null);
 
   gainRef.current = gain;
   rateRef.current = playbackRate;
@@ -416,7 +408,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
                 const available = event.target.getAvailablePlaybackRates();
                 if (available?.length) {
                   setRates(available);
-                  onRates(available);
                 }
               } catch {
                 /* default rates stay */
@@ -519,13 +510,66 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     return () => window.clearInterval(timer);
   }, []);
 
-  function tap() {
-    const now = performance.now();
-    const last = taps.current[taps.current.length - 1];
-    if (last != null && now - last > 2000) taps.current = [];
-    taps.current.push(now);
-    const next = bpmFromTaps(taps.current);
-    if (next) onBpm(next);
+  /** Scrub from the wave. A playing deck is audible while the pointer moves (short bursts at each seek)
+   * and goes silent when the pointer rests, so it never loops one spot. A paused deck seeks silently. */
+  function onScrub(phase: 'start' | 'move' | 'end', seconds: number) {
+    const player = playerRef.current;
+    const state = scrubRef.current;
+    const seek = (final: boolean) => {
+      try {
+        player?.seekTo(seconds, true);
+        if (final && state?.wasPlaying) player?.playVideo();
+      } catch {
+        /* seek while buffering */
+      }
+    };
+    const arm = (current: NonNullable<typeof state>) => {
+      if (current.idle != null) window.clearTimeout(current.idle);
+      if (!current.wasPlaying) return;
+      current.idle = window.setTimeout(() => {
+        current.idle = null;
+        current.muted = true;
+        try {
+          player?.mute();
+        } catch {
+          /* ignore */
+        }
+      }, 180);
+    };
+    if (phase === 'start') {
+      let wasPlaying = false;
+      try {
+        wasPlaying = player?.getPlayerState() === 1;
+      } catch {
+        wasPlaying = false;
+      }
+      const current = { wasPlaying, seekAt: performance.now(), muted: false, idle: null as number | null };
+      scrubRef.current = current;
+      setScrub(seconds);
+      seek(false);
+      arm(current);
+      return;
+    }
+    if (!state) return;
+    if (phase === 'move') {
+      setScrub(seconds);
+      const now = performance.now();
+      if (state.muted) {
+        state.muted = false;
+        applyGain(gainRef.current);
+      }
+      arm(state);
+      if (now - state.seekAt < 90) return;
+      state.seekAt = now;
+      seek(false);
+      return;
+    }
+    if (state.idle != null) window.clearTimeout(state.idle);
+    scrubRef.current = null;
+    seek(true);
+    applyGain(gainRef.current);
+    setTime(seconds);
+    setScrub(null);
   }
 
   function onDrop(event: React.DragEvent) {
@@ -583,14 +627,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     >
       <header className="deck-head">
         <strong>{id}</strong>
-        <p className="deck-title" title={title || undefined}>
-          {apiError ? 'Error' : title}
+        <p className="deck-title" title={title ? decodeEntities(title) : undefined}>
+          {apiError ? 'Error' : decodeEntities(title)}
         </p>
-        {bpm != null ? (
-          <span className="bpm" title="BPM" aria-label={`BPM deck ${id}`}>
-            {Math.round(bpm * 10) / 10}
-          </span>
-        ) : null}
         <span className="time" title={`${formatTime(time)} / ${formatTime(duration)}`}>
           {formatTime(time)}
         </span>
@@ -653,7 +692,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           >
             <Icon name="cue" />
           </button>
-          <TapButton disabled={!videoId} onTap={tap} />
           <RateControl rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} deck={id} />
         </div>
       </div>
@@ -662,23 +700,16 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           <Waveform
             peaks={peaks}
             duration={duration}
-            time={time}
+            time={scrub ?? time}
             color={waveColor}
             progress={waveProgress}
             clearToken={clearToken}
-            onSeek={(seconds) => {
-              try {
-                playerRef.current?.seekTo(seconds, true);
-              } catch {
-                /* ignore */
-              }
-            }}
+            onScrub={onScrub}
             onSelect={(start, end) => setDraft({ start, end })}
           />
         ) : (
           <div className="wave wave-empty" />
         )}
-        <BeatGrid bpm={bpm} offset={beatOffset ?? null} duration={duration} />
       </div>
       {draft ? (
         <form className="draft" onSubmit={saveDraft}>
@@ -706,16 +737,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     </article>
   );
 });
-
-const TAP_TIP = 'Tocá al ritmo para medir el BPM';
-
-function TapButton({ disabled, onTap }: { disabled: boolean; onTap: () => void }) {
-  return (
-    <TipButton className="icon-button tone-tap" label="TAP" tip={TAP_TIP} disabled={disabled} onPress={onTap} wrapClass="tap-tip">
-      <Icon name="tap" />
-    </TipButton>
-  );
-}
 
 /** Icon button with a tooltip: on hover or focus, and on a long press on touch screens. */
 function TipButton({
@@ -825,17 +846,24 @@ function RateControl({
   const wrapRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
-  const [box, setBox] = useState<{ left: number; bottom: number } | null>(null);
   const label = `Velocidad ${shown}×`;
   const higher = rates.filter((value) => value > shown + 0.001);
   const lower = rates.filter((value) => value < shown - 0.001);
 
-  function place() {
-    const rect = wrapRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const left = Math.min(window.innerWidth - 40, Math.max(40, rect.left + rect.width / 2));
-    setBox({ left, bottom: Math.max(8, window.innerHeight - rect.top + 4) });
-  }
+  // All speeds show at once in a compact grid, kept inside the viewport: above the button when it fits, below otherwise.
+  useLayoutEffect(() => {
+    const picker = pickerRef.current;
+    const anchor = wrapRef.current?.getBoundingClientRect();
+    if (!open || !picker || !anchor) return;
+    const { width, height } = picker.getBoundingClientRect();
+    const edge = 8;
+    const left = Math.min(window.innerWidth - width - edge, Math.max(edge, anchor.left + anchor.width / 2 - width / 2));
+    let top = anchor.top - height - 6;
+    if (top < edge) top = Math.min(anchor.bottom + 6, window.innerHeight - height - edge);
+    picker.style.left = `${Math.max(edge, left)}px`;
+    picker.style.top = `${Math.max(edge, top)}px`;
+    picker.style.visibility = 'visible';
+  }, [open, rates.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -848,11 +876,14 @@ function RateControl({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
     };
+    const shut = () => setOpen(false);
     window.addEventListener('pointerdown', close);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', shut);
     return () => {
       window.removeEventListener('pointerdown', close);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', shut);
     };
   }, [open]);
 
@@ -863,11 +894,7 @@ function RateControl({
 
   function toggle() {
     if (disabled) return;
-    setOpen((value) => {
-      const next = !value;
-      if (next) place();
-      return next;
-    });
+    setOpen((value) => !value);
   }
 
   return (
@@ -914,7 +941,7 @@ function RateControl({
       >
         {shown}×
       </div>
-      {open && !disabled && box
+      {open && !disabled
         ? createPortal(
             <ul
               className="rate-picker"
@@ -922,9 +949,9 @@ function RateControl({
               role="listbox"
               aria-label="Velocidades"
               ref={pickerRef}
-              style={{ left: box.left, bottom: box.bottom }}
+              style={{ left: 0, top: 0, visibility: 'hidden', gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, rates.length))}, minmax(0, 1fr))` }}
             >
-              {[...rates].reverse().map((value) => (
+              {rates.map((value) => (
                 <li key={value}>
                   <button
                     type="button"

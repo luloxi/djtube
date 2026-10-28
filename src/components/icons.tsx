@@ -5,7 +5,6 @@ export type IconName =
   | 'pause'
   | 'cue'
   | 'mark'
-  | 'tap'
   | 'analyze'
   | 'record'
   | 'stop'
@@ -33,7 +32,6 @@ export type IconName =
   | 'viz'
   | 'mic'
   | 'camera'
-  | 'beat'
   | 'reset'
   | 'reverb'
   | 'bell'
@@ -49,12 +47,6 @@ const ICONS: Record<IconName, ReactNode> = {
     </>
   ),
   mark: <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />,
-  tap: (
-    <>
-      <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
-      <path d="m13 13 6 6" />
-    </>
-  ),
   analyze: (
     <>
       <path d="M2 10v4" />
@@ -203,15 +195,6 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="M3 8h12v10H3z" />
       <path d="m15 12 6-3v8l-6-3" />
-    </>
-  ),
-  beat: (
-    <>
-      <path d="M4 14v-4" />
-      <path d="M8 18V6" />
-      <path d="M12 16V8" />
-      <path d="M16 18V6" />
-      <path d="M20 14v-4" />
     </>
   ),
   reset: (

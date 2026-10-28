@@ -90,8 +90,6 @@ export function deckSnapshot(deck: DeckModel): DeckModel {
     volume: deck.volume,
     cueTime: deck.cueTime,
     playbackRate: deck.playbackRate,
-    bpm: deck.bpm,
-    beatOffset: deck.beatOffset ?? null,
     peaks: null,
   };
 }

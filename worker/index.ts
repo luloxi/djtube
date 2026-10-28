@@ -16,15 +16,16 @@ import { normalizeSearchQuery, SEARCH_CACHE_SECONDS, youtubeFailure } from '../s
 import { parsePushSubscription, vapidKeysReady } from '../src/lib/push-sub';
 import { parseSearchItems } from '../src/lib/youtube-search';
 import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
-import { authConfig, getAuth, readSession, type AuthEnv } from './auth';
+import { authConfig, getAuth, readSession } from './auth';
 import { chargeBudget, keyBudget } from './budget';
 import type { D1Database } from './d1';
 import { notifyAccessRequest, notifyApproved } from './notify';
 import { deleteSubscription, saveSubscription } from './push-db';
+import { rateLimited, type RateEnv } from './ratelimit';
 import { readCachedJson, writeCachedJson } from './yt-cache';
 import { handlePlaylist, handleYouTubePlaylist } from './youtube';
 
-interface Env extends AuthEnv {
+interface Env extends RateEnv {
   ASSETS: { fetch(input: Request | URL | string): Promise<Response> };
   YT_API_KEY?: string;
   DB?: D1Database;
@@ -39,6 +40,10 @@ function json(body: unknown, status = 200): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/api/') && url.pathname !== '/api/health') {
+      const blocked = await rateLimited(request, url.pathname, env);
+      if (blocked) return blocked;
+    }
     if (url.pathname === '/api/health') return json({ ok: true });
     if (url.pathname === '/api/auth' || url.pathname.startsWith('/api/auth/')) return handleAuth(request, env);
     if (url.pathname === '/api/me') return handleMe(request, env);

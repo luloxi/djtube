@@ -22,14 +22,6 @@ export function formatPercent(gain: number): string {
   return String(Math.round(clamp01(gain) * 100));
 }
 
-/** Playback rate that makes `fromBpm` sound like `toBpm`. */
-export function syncPlaybackRate(fromBpm: number, toBpm: number): number | null {
-  if (!(fromBpm > 0) || !(toBpm > 0)) return null;
-  const rate = toBpm / fromBpm;
-  if (!Number.isFinite(rate)) return null;
-  return Math.round(rate * 1000) / 1000;
-}
-
 export function nearestPlaybackRate(desired: number, available: number[] = DEFAULT_RATES): number {
   const rates = available.length ? available : [1];
   return rates.reduce((best, rate) => (Math.abs(rate - desired) < Math.abs(best - desired) ? rate : best));

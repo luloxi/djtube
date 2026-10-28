@@ -1,3 +1,5 @@
+import { decodeEntities } from './html-text';
+
 const VIDEO_ID = /^[\w-]{11}$/;
 
 export type SearchHit = {
@@ -31,8 +33,8 @@ export function parseSearchItems(data: unknown): SearchHit[] {
     const thumbs = item.snippet?.thumbnails;
     items.push({
       videoId,
-      title: item.snippet?.title || item.title || videoId,
-      channel: item.snippet?.channelTitle || item.channel || '',
+      title: decodeEntities(item.snippet?.title || item.title || videoId),
+      channel: decodeEntities(item.snippet?.channelTitle || item.channel || ''),
       thumbnail: thumbs?.medium?.url || thumbs?.default?.url || (typeof item.thumbnail === 'string' ? item.thumbnail : null),
     });
   }

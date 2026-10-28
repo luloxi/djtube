@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import { useRef } from 'react';
 import { clamp01, formatPercent } from '../lib/mixer';
 import { Icon } from './icons';
 
@@ -14,10 +14,9 @@ type Props = {
   onVolumeB: (volume: number) => void;
   onX: (x: number, fromUser: boolean) => void;
   onGlide: () => void;
-  children?: ReactNode;
 };
 
-export function Transition({ x, gainA, gainB, volumeA, volumeB, seconds, onSeconds, onVolumeA, onVolumeB, onX, onGlide, children }: Props) {
+export function Transition({ x, gainA, gainB, volumeA, volumeB, seconds, onSeconds, onVolumeA, onVolumeB, onX, onGlide }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const glideDrag = useRef<{ y: number; value: number } | null>(null);
 
@@ -73,7 +72,6 @@ export function Transition({ x, gainA, gainB, volumeA, volumeB, seconds, onSecon
           >
             {seconds}s
           </div>
-          {children}
           <strong data-testid="gain-b" data-value={formatPercent(gainB)}>
             B {formatPercent(gainB)}
           </strong>

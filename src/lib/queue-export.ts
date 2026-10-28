@@ -1,4 +1,5 @@
 import type { Track } from '../types';
+import { decodeEntities } from './html-text';
 
 export const YOUTUBE_SCOPE = 'https://www.googleapis.com/auth/youtube';
 export const WATCH_VIDEOS_CHUNK = 50;
@@ -13,7 +14,7 @@ function oneLine(value: string): string {
 
 /** Three lines per track: title, link, blank line. */
 export function queueLinksText(tracks: Array<Pick<Track, 'title' | 'videoId'>>): string {
-  return tracks.map((track) => `${oneLine(track.title) || track.videoId}\nhttps://www.youtube.com/watch?v=${track.videoId}\n\n`).join('');
+  return tracks.map((track) => `${oneLine(decodeEntities(track.title)) || track.videoId}\nhttps://www.youtube.com/watch?v=${track.videoId}\n\n`).join('');
 }
 
 export function queueLinksFilename(now = new Date()): string {

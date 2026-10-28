@@ -249,14 +249,6 @@ h2 {
   font-size: 13px;
 }
 
-.bpm {
-  font-size: 28px;
-  font-weight: 680;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-}
-
 .time {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -284,7 +276,6 @@ h2 {
 
 .deck.disc-on .video-slot { align-items: center; }
 .deck.disc-on .deck-head { min-height: 26px; }
-.deck.disc-on .bpm { font-size: 22px; }
 .deck.disc-on .wave-wrap,
 .deck.disc-on .wave,
 .deck.disc-on .wave-empty {
@@ -408,7 +399,6 @@ h2 {
 }
 
 .transport > .icon-button,
-.transport > .tap-tip,
 .transport > .rate {
   flex: 1 1 0;
   min-width: 0;
@@ -464,7 +454,6 @@ h2 {
 
 .rate-picker {
   position: fixed;
-  transform: translateX(-50%);
   z-index: 40;
   margin: 0;
   padding: 4px;
@@ -472,19 +461,17 @@ h2 {
   background: #1c1a17;
   border: 1px solid var(--line);
   border-radius: 8px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 2px;
-  max-height: min(280px, 50dvh);
-  overflow: auto;
+  max-width: calc(100vw - 16px);
 }
 
 .rate-picker button {
   display: block;
   width: 100%;
-  min-width: 64px;
-  min-height: 36px;
-  padding: 0 10px;
+  min-width: 52px;
+  min-height: 40px;
+  padding: 0 6px;
   color: var(--text);
   background: transparent;
   font-variant-numeric: tabular-nums;
@@ -504,9 +491,7 @@ h2 {
 .tone-play { --neon: #3dff6e; --neon-glow: rgba(61, 255, 110, 0.9); }
 .tone-back { --neon: #c45cff; --neon-glow: rgba(196, 92, 255, 0.9); }
 .tone-speed { --neon: #ff8a1e; --neon-glow: rgba(255, 138, 30, 0.9); }
-.tone-tap { --neon: #3df0ff; --neon-glow: rgba(61, 240, 255, 0.9); }
 .tone-viz { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
-.tone-beat { --neon: #ff5c8a; --neon-glow: rgba(255, 92, 138, 0.9); }
 .tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
 
 button[class*="tone-"],
@@ -542,20 +527,6 @@ button[class*="tone-"]:disabled:hover,
   filter: none;
 }
 
-.beat-pair { display: inline-flex; gap: 3px; align-items: center; flex: 0 0 auto; }
-.beat-go {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  min-height: 28px;
-}
-.beat-go[data-deck="A"] { box-shadow: inset 3px 0 0 var(--teal); }
-.beat-go[data-deck="B"] { box-shadow: inset 3px 0 0 var(--amber); }
-.beat-go[data-deck="A"]:hover:not(:disabled),
-.beat-go[data-deck="A"]:focus-visible { box-shadow: inset 3px 0 0 var(--teal); }
-.beat-go[data-deck="B"]:hover:not(:disabled),
-.beat-go[data-deck="B"]:focus-visible { box-shadow: inset 3px 0 0 var(--amber); }
-
 button[class*="tone-"]:focus-visible,
 .rate-value[class*="tone-"]:focus-visible {
   outline: none;
@@ -578,8 +549,6 @@ button[class*="tone-"]:focus-visible,
 }
 .workspace.list-open .viz-toggle { display: none; }
 
-.tap-tip { position: relative; display: flex; min-width: 0; }
-.tap-tip > .icon-button { width: 100%; }
 .tip-pop {
   position: absolute;
   left: 50%;
@@ -601,6 +570,8 @@ button[class*="tone-"]:focus-visible,
 }
 .tip-pop.is-on { visibility: visible; }
 
+.deck { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.deck input { -webkit-user-select: text; user-select: text; }
 .wave-wrap {
   position: relative;
   flex: 0 1 64px;
@@ -609,6 +580,14 @@ button[class*="tone-"]:focus-visible,
   display: flex;
   flex-direction: column;
 }
+.wave-scrub {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: pointer;
+  touch-action: none;
+}
+.wave-scrub.pick-region { pointer-events: none; }
 .wave, .wave-empty {
   flex: 1 1 auto;
   min-height: 0;
@@ -616,17 +595,6 @@ button[class*="tone-"]:focus-visible,
   overflow: hidden;
   cursor: pointer;
 }
-.beat-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.beat-line, .beat-down { vector-effect: non-scaling-stroke; }
-.beat-line { stroke: rgba(244, 240, 232, 0.35); stroke-width: 1; }
-.beat-down { stroke: rgba(231, 164, 90, 0.9); stroke-width: 2; }
-
 .mixer {
   flex: 0 0 auto;
   height: 132px;
@@ -724,15 +692,6 @@ button[class*="tone-"]:focus-visible,
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   touch-action: none;
-}
-
-.sync-actions { display: flex; gap: 4px; align-items: center; }
-.sync-actions button {
-  height: 28px;
-  min-height: 28px;
-  padding: 0 6px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
 }
 
 .fader-track {
@@ -1501,11 +1460,8 @@ button.text-link:hover:not(:disabled) {
   .transport .rate-step,
   .transport .rate-value,
   .transport > .icon-button,
-  .transport > .tap-tip,
-  .transport > .rate { height: 40px; min-height: 40px; }
+    .transport > .rate { height: 40px; min-height: 40px; }
   .mixer { height: 148px; grid-template-columns: 56px minmax(0, 1fr) 56px; }
-  .sync-actions button { min-height: 44px; height: 44px; }
-  .bpm { font-size: 26px; }
   .sync-player { width: 120px; height: 68px; opacity: 0.35; }
 }
 
@@ -1529,7 +1485,6 @@ button.text-link:hover:not(:disabled) {
   .deck-top { display: flex; flex-direction: column; flex: 1 1 auto; }
   .wave-wrap, .wave, .wave-empty { flex: 0 1 36px; min-height: 28px; max-height: 48px; }
   .mixer { height: 108px; }
-  .bpm { font-size: 22px; }
   .deck-head { min-height: 32px; }
 }
 
@@ -1542,7 +1497,6 @@ button.text-link:hover:not(:disabled) {
   .fader-track { min-height: 44px; }
   .deck-head { min-height: 30px; }
   .deck.disc-on .deck-head { min-height: 24px; }
-  .bpm { font-size: 20px; }
 }
 
 /* Phones in portrait: two equal rows. Desktop and landscape stay on one row.
@@ -1550,7 +1504,7 @@ button.text-link:hover:not(:disabled) {
 @media (max-width: 1023px) and (orientation: portrait) {
   .transport {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-auto-rows: 40px;
     align-items: stretch;
     gap: 4px;
@@ -1562,8 +1516,7 @@ button.text-link:hover:not(:disabled) {
     padding: 2px;
   }
   .transport > .icon-button,
-  .transport > .tap-tip,
-  .transport > .rate {
+    .transport > .rate {
     flex: none;
     width: auto;
     min-width: 0;
@@ -1586,7 +1539,6 @@ button.text-link:hover:not(:disabled) {
     height: 100%;
     min-height: 0;
   }
-  .transport .tap-tip > .icon-button,
   .transport > .icon-button { height: 100%; min-height: 0; }
 }
 

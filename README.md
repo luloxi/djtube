@@ -12,20 +12,22 @@ En el móvil los dos decks van apilados, con fader y play a la vista, y una raya
 
 1. **Buscar** es la única entrada. Pega un enlace de video y va a la cola. Pega uno de playlist (`list=`, también `watch?v=…&list=…`, music.youtube.com y youtu.be) y un modal pregunta **Agregar toda la lista** o **Solo esta canción** (solo si el enlace trae un video); la X, un clic afuera o Escape lo cierran sin agregar nada. La lista entera se trae de a páginas, sin tope de 50 (`/api/playlist` usa la clave compartida de la Data API si hay cupo, y si no la continuación de YouTube), en orden, sin repetidos ni videos privados o no disponibles, con una barrita de carga y un aviso «N temas agregados». Un texto común busca con esa clave compartida, o con la clave propia de este navegador (ver más abajo). Al pie de la cola, **Guardar cola** ofrece **Descargar lista de links** (`djtube-cola-AAAA-MM-DD.txt`: título, enlace y línea en blanco por tema; es una lista de enlaces, no el audio) o **Guardar en YouTube** (ver más abajo).
 2. Carga un tema en A y otro en B. También puedes arrastrar.
-3. En escritorio y en el móvil horizontal, play, volver, TAP y la velocidad van en una sola fila, todos del mismo alto. En el móvil vertical (también ~360 y ~412 de ancho) son exactamente dos filas del mismo tamaño: play, volver y TAP; debajo, − velocidad +. El icono de visualización (onda neón rosa, disco/video) está arriba a la derecha del encabezado de cada deck, con tooltip al pasar el mouse o mantener pulsado; en el móvil se oculta mientras la cola o la búsqueda están abiertas. No queda un botón suelto. No hay icono de onda, de sincronizar ni de analizar en esa fila. Volver pausa y busca el inicio (0:00). El BPM se ve como un número simple en el encabezado solo cuando está fijado (sin etiqueta ni campo). El video no tiene fullscreen (`fs: 0`).
-4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra, igual que la onda (clic busca, arrastre marca un corte).
+3. En escritorio y en el móvil horizontal, play, volver y la velocidad van en una sola fila, todos del mismo alto. En el móvil vertical (también ~360 y ~412 de ancho) son exactamente dos filas del mismo tamaño: play y volver; debajo, − velocidad +. El icono de visualización (onda neón rosa, disco/video) está arriba a la derecha del encabezado de cada deck, con tooltip al pasar el mouse o mantener pulsado; en el móvil se oculta mientras la cola o la búsqueda están abiertas. No queda un botón suelto. No hay TAP, ni BPM, ni icono de sincronizar o de analizar en esa fila. Volver pausa y busca el inicio (0:00). El video no tiene fullscreen (`fs: 0`).
+4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra.
 5. **Auto** (junto al fader) desliza A↔B. Por defecto dura 3 s; los segundos se arrastran.
-6. Cada deck tiene un solo − a la izquierda del número de velocidad y un solo + a la derecha, en cualquier ancho. No hay botones « » al lado. Un clic en el número abre la lista de velocidades que permite YouTube y al elegir una se aplica y se cierra. No se cambia deslizando; − y + y las flechas del teclado siguen. Arrastrar el disco busca.
-7. Los botones no tienen fondo: cada icono es neón según su rol (play verde, volver violeta, velocidad naranja, TAP cian, visualización rosa, entrar en beat rosa en la barra del fader). Brillan un poco en reposo y más al pasar el mouse, enfocar o prender; nunca se ponen negros ni grises. TAP muestra «Tocá al ritmo para medir el BPM» al pasar el mouse y, en el teléfono, al mantenerlo pulsado.
-8. Al cargar un tema, el deck lo precarga (play mudo, pausa en 0) para que el arranque salga más a tiempo.
+6. Cada deck tiene un solo − a la izquierda del número de velocidad y un solo + a la derecha, en cualquier ancho. No hay botones « » al lado. Un clic en el número abre una grilla compacta con todas las velocidades que permite YouTube, siempre dentro de la pantalla y sin scroll; tocar una la aplica y se cierra (también con un toque afuera o Escape). No se cambia deslizando; − y + y las flechas del teclado siguen. Arrastrar el disco busca.
+7. Los botones no tienen fondo: cada icono es neón según su rol (play verde, volver violeta, velocidad naranja, visualización rosa). Brillan un poco en reposo y más al pasar el mouse, enfocar o prender; nunca se ponen negros ni grises.
+8. **La onda** de cada deck no se puede seleccionar como texto. Apretar y arrastrar sobre ella explora el tema: mientras el deck suena se oye a saltos donde estás (como rebobinar o avanzar rápido) y se calla si dejas quieto el dedo; si estaba en pausa, busca en silencio. Al soltar, el cursor queda donde soltaste y el tema sigue desde ahí (o sigue en pausa). Funciona con mouse y con touch. Marcar un corte es **Shift + arrastrar** sobre la onda (en escritorio).
+9. Los títulos de YouTube se muestran como texto: `&#39;`, `&amp;` y demás entidades se decodifican (sin `innerHTML`), también en la cola ya guardada.
+10. Al cargar un tema, el deck lo precarga (play mudo, pausa en 0) para que el arranque salga más a tiempo.
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
 
-## BPM y cortes
+## Cortes
 
 El audio y el video de YouTube no se capturan, no se graban y no se descargan. Suena solo el reproductor oficial embebido. Preparar es la lista de cortes (nombre y tiempos). No hay pestaña `/sync`.
 
-El BPM se pone a oído: **TAP**. Al fijar un BPM, si todavía no había offset el downbeat arranca en 0 y la onda dibuja la grilla. **Entrar en beat** está junto al fader (A y B), no en el deck: espera el próximo beat del otro deck y arranca ahí. YouTube solo tiene velocidades discretas. No hay botón de igualar BPM. Sin BPM, la grilla no se dibuja. Los avisos son un toast corto. El BPM y el offset quedan en este navegador, con la sesión, no en el servidor.
+No hay BPM, ni TAP, ni «entrar en beat», ni grilla: se mezcla de oído. YouTube solo tiene velocidades discretas. Los avisos son un toast corto.
 
 En DJ, el video se dibuja dentro de un disco redondo: el círculo más grande que entra en el deck, centrado, en cualquier ancho. Gira mientras ese deck suena (33⅓) y se queda quieto en pausa. Empieza prendido. Una preferencia vieja de disco apagado se tira una sola vez (`djtube-disc-v2`); después, si se apaga, queda en `djtube-disc-A` o `djtube-disc-B` en `0`. Arrastrar busca: hacia adelante sube un momento la velocidad, hacia atrás pausa y busca (YouTube no reproduce al revés). Al soltar vuelve el estado anterior. El video tapa el círculo entero (sin bandas negras) y los controles quedan pegados y compactos debajo.
 
@@ -33,7 +35,7 @@ El micrófono de la barra (solo en escritorio; no aparece en celulares ni tablet
 
 En escritorio (1024px y puntero fino) la cola, los dos decks y el mixer son una sola grilla. Arrastrar un borde reparte el lugar: la cola más ancha achica los dos decks, un deck más ancho achica al otro, el mixer más alto achica la fila de decks. Nada se sale de la mesa ni se pisa. Al cambiar el tamaño de la ventana, lo guardado se vuelve a encajar, también si venía de un layout viejo más grande que la pantalla. La cámara, si está prendida, flota encima y también queda dentro de la mesa. El layout queda en `djtube-layout`. **Restablecer** está en la cuenta. La barra de abajo no se esconde. En el teléfono la grilla fija no se mueve.
 
-Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. No se descarga el audio del corte.
+Con Shift apretado, arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. No se descarga el audio del corte.
 
 La cola se puede vaciar: no saca los temas que están en A o en B. Deslizar una fila a izquierda o derecha (dedo o mouse) también la quita, con una salida corta y un aviso **deshacer**. Si el tema está en A o en B, la fila vuelve sola.
 
@@ -114,10 +116,14 @@ Sin `YT_API_KEY`, la búsqueda muestra una nota y ofrece la clave propia. Pegar 
 
 Por qué no partimos de otro mixer: [DECISIONS.md](DECISIONS.md). English: [README.en.md](README.en.md).
 
+## Rate limit
+
+Cada IP tiene un tope por ráfaga en `/api/*` (Workers Rate Limiting, gratis, por ubicación de Cloudflare, aproximado): 60 pedidos / 10 s en general, 12 / 10 s en búsqueda y playlists (`/api/search`, `/api/playlist`, `/api/youtube/playlist`) y 150 / 10 s en títulos (`/api/oembed`). Pasado el tope, el Worker responde `429` con `Retry-After: 10` antes de tocar la base o YouTube. El dueño y las cuentas marcadas **Sin límite** en admin no se cortan: solo cuando se pasa el tope se mira la sesión (máx. 5 consultas / 10 s por IP). Los archivos estáticos no pasan por el Worker. Los contadores están en `wrangler.jsonc` (`ratelimits`) y la lógica en `worker/ratelimit.ts`.
+
 ## Límites
 
 - No se separa, guarda ni descarga el audio o el video de YouTube. La onda es una guía para marcar un corte, no el audio del tema.
-- YouTube solo acepta las velocidades que expone el player. La grilla es visual, no un keylock. El BPM es el que se midió a oído.
+- YouTube solo acepta las velocidades que expone el player.
 - La playlist pública se recorre de a páginas (Data API o la continuación de YouTube). No hay tope de 50 en la cola.
 - No hay archivo de audio de un corte. Sí se puede bajar un `.txt` con los enlaces de la cola.
 - No hay EQ. La cola y los cortes quedan en este navegador.

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { DeckId, DeckModel, Highlight, Track } from './types';
-import { DEFAULT_RATES, emptyDeck } from './types';
+import { emptyDeck } from './types';
 import { readStoredMode, storeMode, type AppMode } from './lib/mode';
 import { clampLayout, layoutChanged, readLayout, storeLayout, type Bounds, type DeskLayout, type PanelBox } from './lib/layout';
 import { AdminPanel } from './components/AdminPanel';
@@ -16,11 +16,9 @@ import { Library } from './components/Library';
 import { PlaylistAsk } from './components/PlaylistAsk';
 import { Preparar } from './components/Preparar';
 import { SearchBox } from './components/SearchBox';
-import { SyncNote } from './components/SyncNote';
 import { Transition } from './components/Transition';
 import { Welcome } from './components/Welcome';
 import { addHighlight } from './lib/highlights';
-import { planSyncedStart } from './lib/beats';
 import { deckSnapshot, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clearQueue, removeQueuedTrack, restoreTrack } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
@@ -54,7 +52,6 @@ export function App({
   const [decks, setDecks] = useState<Record<DeckId, DeckModel>>({ A: emptyDeck(), B: emptyDeck() });
   const [library, setLibrary] = useState<Track[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [rates, setRates] = useState<Record<DeckId, number[]>>({ A: DEFAULT_RATES, B: DEFAULT_RATES });
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistAsk, setPlaylistAsk] = useState<ParsedYouTube | null>(null);
   const [booted, setBooted] = useState(false);
@@ -260,8 +257,8 @@ export function App({
         xRef.current = position;
         setX(position);
         setDecks({
-          A: { ...emptyDeck(), ...session.decks.A, peaks: null, beatOffset: session.decks.A?.beatOffset ?? null },
-          B: { ...emptyDeck(), ...session.decks.B, peaks: null, beatOffset: session.decks.B?.beatOffset ?? null },
+          A: { ...emptyDeck(), ...session.decks.A, peaks: null },
+          B: { ...emptyDeck(), ...session.decks.B, peaks: null },
         });
       }
       setLibrary(storedLibrary);
@@ -330,33 +327,6 @@ export function App({
     };
   }, [owner, adminOpen]);
 
-  function startSynced(id: DeckId) {
-    const other: DeckId = id === 'A' ? 'B' : 'A';
-    const leader = decksRef.current[other];
-    const leaderTime = handleFor(other)?.getTime() ?? 0;
-    let leaderPlaying = false;
-    try {
-      leaderPlaying = handleFor(other)?.getPlayer()?.getPlayerState() === 1;
-    } catch {
-      leaderPlaying = false;
-    }
-    const plan = planSyncedStart({
-      leaderTime,
-      leaderBpm: leader.bpm,
-      leaderOffset: leader.beatOffset,
-      leaderRate: leader.playbackRate,
-      leaderPlaying,
-    });
-    if (!plan) {
-      setStatus('Sin beat');
-      return;
-    }
-    window.setTimeout(() => {
-      handleFor(id)?.play();
-      setStatus(`Beat ${id}`);
-    }, plan.delayMs);
-  }
-
   useEffect(() => {
     function playing(id: DeckId): boolean {
       try {
@@ -424,8 +394,6 @@ export function App({
           title: track.title !== track.videoId ? track.title : prev[id].title || track.title,
           thumbnail: track.thumbnail,
           peaks: null,
-          bpm: same ? prev[id].bpm : null,
-          beatOffset: same ? prev[id].beatOffset : null,
           cueTime: same ? prev[id].cueTime : 0,
         },
       };
@@ -646,25 +614,12 @@ export function App({
                 title={decks[id].title}
                 gain={id === 'A' ? shownA : shownB}
                 playbackRate={decks[id].playbackRate}
-                bpm={decks[id].bpm}
                 peaks={decks[id].peaks}
                 onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
-                onBpm={(bpm) => {
-                  setDecks((prev) => ({
-                    ...prev,
-                    [id]: {
-                      ...prev[id],
-                      bpm,
-                      beatOffset: bpm == null ? null : (prev[id].beatOffset ?? 0),
-                    },
-                  }));
-                }}
                 onTitle={rename}
-                onRates={(next) => setRates((prev) => ({ ...prev, [id]: next }))}
                 onDropTrack={(track) => void loadInto(id, track)}
                 onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
                 onStatus={setStatus}
-                beatOffset={decks[id].beatOffset}
               />
             ))}
           </div>
@@ -691,43 +646,7 @@ export function App({
             onVolumeB={(volume) => setDecks((prev) => ({ ...prev, B: { ...prev.B, volume } }))}
             onX={setPosition}
             onGlide={glide}
-          >
-            <span className="beat-pair">
-              <button
-                type="button"
-                className="icon-button tone-beat beat-go"
-                data-deck="A"
-                title="Entrar en beat A"
-                aria-label="Entrar en beat A"
-                disabled={!decks.A.videoId || !decks.B.bpm}
-                onClick={() => startSynced('A')}
-              >
-                <Icon name="beat" size={15} />
-              </button>
-              <button
-                type="button"
-                className="icon-button tone-beat beat-go"
-                data-deck="B"
-                title="Entrar en beat B"
-                aria-label="Entrar en beat B"
-                disabled={!decks.B.videoId || !decks.A.bpm}
-                onClick={() => startSynced('B')}
-              >
-                <Icon name="beat" size={15} />
-              </button>
-            </span>
-            <SyncNote
-              bpmA={decks.A.bpm}
-              bpmB={decks.B.bpm}
-              ratesA={rates.A}
-              ratesB={rates.B}
-              onApply={(id, rate) => {
-                setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: rate } }));
-                handleFor(id)?.setRate(rate);
-                setStatus(`${id} ×${rate}`);
-              }}
-            />
-          </Transition>
+          />
         </main>
         {desktop && webcamOn ? (
           <FreeSlot active box={layout.webcam} onBox={placeWebcam}>

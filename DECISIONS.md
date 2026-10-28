@@ -20,7 +20,7 @@ None of them are a clean, small, permissively licensed two-deck app we could dro
 
 ## Libraries we do use
 
-- **wavesurfer.js 7** (BSD-3-Clause) and its **Regions** plugin. The YouTube IFrame does not expose audio, so WaveSurfer does not play the track. It can draw a beat grid and drag-select a highlight. It does not load a media URL and it does not receive captured YouTube audio.
+- **wavesurfer.js 7** (BSD-3-Clause) and its **Regions** plugin. The YouTube IFrame does not expose audio, so WaveSurfer does not play the track. It draws the waveform and Shift-drag selects a highlight. It does not load a media URL and it does not receive captured YouTube audio.
 
 ## YouTube audio is not captured (28 Oct 2026)
 
@@ -31,7 +31,7 @@ The [YouTube API Services](https://developers.google.com/youtube/terms/api-servi
 - audio blobs in IndexedDB (the `audio` store, and the `analyses` store that held peaks from that capture)
 - the Worker writer for that analysis (`worker/analysis-db.ts`)
 
-The D1 table `track_analysis` is left in place. Nothing reads it or writes it anymore. Playback is only the official embedded YouTube IFrame player. Tap tempo, a manual BPM, and the beat grid stay, because they never read captured audio. A `.txt` list of links is still fine. The person's own microphone (Web Audio) is not YouTube audio and stays.
+The D1 table `track_analysis` is left in place. Nothing reads it or writes it anymore. Playback is only the official embedded YouTube IFrame player. Tap tempo, BPM, and the beat grid were later removed as unused. A `.txt` list of links is still fine. The person's own microphone (Web Audio) is not YouTube audio and stays.
 
 ## Search is public, and the shared key is metered (28 Oct 2026)
 

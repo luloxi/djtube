@@ -1,4 +1,5 @@
 import type { Track } from '../types';
+import { decodeEntities } from './html-text';
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
@@ -65,7 +66,7 @@ export async function fetchOEmbed(videoId: string): Promise<{ title: string; thu
     if (!response.ok) return null;
     const data = (await response.json()) as { ok?: boolean; title?: string; thumbnail_url?: string };
     if (!data.ok || !data.title) return null;
-    return { title: data.title, thumbnail: data.thumbnail_url ?? null };
+    return { title: decodeEntities(data.title), thumbnail: data.thumbnail_url ?? null };
   } catch {
     return null;
   }

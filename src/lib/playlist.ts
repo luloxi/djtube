@@ -1,5 +1,6 @@
 import type { Track } from '../types';
 import { thumbnailFor } from './youtube';
+import { decodeEntities } from './html-text';
 
 const VIDEO_ID = /^[\w-]{11}$/;
 const DEAD_TITLE = /^(private video|deleted video|unavailable video|video unavailable|this video is unavailable|private|deleted)$/i;
@@ -34,7 +35,7 @@ export function isPlayablePlaylistItem(item: {
 export function playlistItemToTrack(item: PlaylistItem): Track {
   return {
     videoId: item.videoId,
-    title: item.title.trim() || item.videoId,
+    title: decodeEntities(item.title).trim() || item.videoId,
     thumbnail: item.thumbnail || thumbnailFor(item.videoId),
   };
 }
@@ -52,7 +53,7 @@ export function takeNewPlaylistItems(page: PlaylistItem[], queued: Set<string>):
     queued.add(item.videoId);
     added.push({
       videoId: item.videoId,
-      title: item.title.trim() || item.videoId,
+      title: decodeEntities(item.title).trim() || item.videoId,
       thumbnail: safeThumb(item.thumbnail, item.videoId),
     });
   }
@@ -119,7 +120,7 @@ export function parseDataApiPlaylist(data: unknown): PlaylistPage {
       (typeof resource?.videoId === 'string' && resource.videoId) ||
       (typeof content?.videoId === 'string' && content.videoId) ||
       '';
-    const title = typeof snippet?.title === 'string' ? snippet.title : videoId;
+    const title = typeof snippet?.title === 'string' ? decodeEntities(snippet.title) : videoId;
     const thumbs = asRecord(snippet?.thumbnails);
     const medium = asRecord(thumbs?.medium);
     const high = asRecord(thumbs?.high);
@@ -160,7 +161,7 @@ function lockupToItem(lockup: Record<string, unknown>): PlaylistItem | null {
   if (lockup.contentType !== 'LOCKUP_CONTENT_TYPE_VIDEO') return null;
   const videoId = typeof lockup.contentId === 'string' ? lockup.contentId : '';
   const meta = asRecord(asRecord(lockup.metadata)?.lockupMetadataViewModel);
-  const title = textOf(meta?.title) || videoId;
+  const title = decodeEntities(textOf(meta?.title)) || videoId;
   const sources = asRecord(asRecord(asRecord(lockup.contentImage)?.thumbnailViewModel)?.image)?.sources;
   const list = Array.isArray(sources) ? sources : [];
   const last = asRecord(list[list.length - 1]);
@@ -194,7 +195,7 @@ export function parseInnertubePlaylist(data: unknown): PlaylistPage {
         } else if (legacy) {
           hasVideos = true;
           const videoId = typeof legacy.videoId === 'string' ? legacy.videoId : '';
-          const title = textOf(legacy.title) || videoId;
+          const title = decodeEntities(textOf(legacy.title)) || videoId;
           const thumbs = asRecord(legacy.thumbnail);
           const thumbList = Array.isArray(thumbs?.thumbnails) ? thumbs.thumbnails : [];
           const lastThumb = asRecord(thumbList[thumbList.length - 1]);
@@ -226,7 +227,7 @@ export function readPlaylistPayload(data: unknown): PlaylistPage | null {
     for (const raw of root.items) {
       const row = asRecord(raw);
       if (!row || typeof row.videoId !== 'string') continue;
-      const title = typeof row.title === 'string' ? row.title : row.videoId;
+      const title = typeof row.title === 'string' ? decodeEntities(row.title) : row.videoId;
       const thumbnail = typeof row.thumbnail === 'string' ? row.thumbnail : null;
       const privacyStatus = typeof row.privacyStatus === 'string' ? row.privacyStatus : null;
       const playable = typeof row.playable === 'boolean' ? row.playable : null;

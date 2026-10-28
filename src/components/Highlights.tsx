@@ -4,6 +4,7 @@ import { formatTime } from '../lib/format';
 import { exportHighlights, importHighlights, searchHighlights } from '../lib/highlights';
 import { downloadBlob } from '../lib/download';
 import { Icon } from './icons';
+import { decodeEntities } from '../lib/html-text';
 
 type Props = {
   highlights: Highlight[];
@@ -67,7 +68,7 @@ export function Highlights({ highlights, onChange, onPlay, onStatus }: Props) {
               <p>
                 <strong>{highlight.label}</strong>
                 <span>
-                  {highlight.title} · {formatTime(highlight.start)}–{formatTime(highlight.end)}
+                  {decodeEntities(highlight.title)} · {formatTime(highlight.start)}–{formatTime(highlight.end)}
                 </span>
               </p>
               <div className="row">

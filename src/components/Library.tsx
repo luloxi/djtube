@@ -3,6 +3,7 @@ import type { DeckId, Track } from '../types';
 import { consumeDeckDrop, swipeCommit, trackIsLoaded } from '../lib/library';
 import { Icon } from './icons';
 import { QueueSave } from './QueueSave';
+import { decodeEntities } from '../lib/html-text';
 
 type Props = {
   tracks: Track[];
@@ -188,14 +189,14 @@ export function TrackRow({
         event.stopPropagation();
       }}
     >
-      <button type="button" className="track-add track-add-a" aria-label={`Cargar en deck A: ${track.title}`} title="A" onClick={() => onLoad(track, 'A')}>
+      <button type="button" className="track-add track-add-a" aria-label={`Cargar en deck A: ${decodeEntities(track.title)}`} title="A" onClick={() => onLoad(track, 'A')}>
         A
       </button>
       {track.thumbnail ? <img src={track.thumbnail} alt="" /> : <span className="thumb" />}
-      <p className="track-name" title={track.title}>
-        {track.title}
+      <p className="track-name" title={decodeEntities(track.title)}>
+        {decodeEntities(track.title)}
       </p>
-      <button type="button" className="track-add track-add-b" aria-label={`Cargar en deck B: ${track.title}`} title="B" onClick={() => onLoad(track, 'B')}>
+      <button type="button" className="track-add track-add-b" aria-label={`Cargar en deck B: ${decodeEntities(track.title)}`} title="B" onClick={() => onLoad(track, 'B')}>
         B
       </button>
     </div>

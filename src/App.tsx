@@ -599,7 +599,7 @@ export function App({
       {mode === 'dj' ? (
       <div
         ref={workspaceRef}
-        className={desktop ? 'workspace is-split' : 'workspace'}
+        className={desktop ? 'workspace is-split' : leftOpen ? 'workspace list-open' : 'workspace'}
         style={
           desktop
             ? ({

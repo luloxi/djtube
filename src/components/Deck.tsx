@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { DeckId, Track } from '../types';
 import { DEFAULT_RATES } from '../types';
@@ -593,26 +593,34 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         <p className="deck-title" title={title || undefined}>
           {apiError ? 'Error' : title}
         </p>
-        <label className="bpm">
-          <input
-            inputMode="decimal"
-            value={bpm ?? ''}
-            placeholder="BPM"
-            onChange={(event) => {
-              const raw = event.target.value.trim();
-              if (!raw) {
-                onBpm(null);
-                return;
-              }
-              const value = Number(raw);
-              if (Number.isFinite(value) && value > 0 && value < 400) onBpm(value);
-            }}
-            aria-label={`BPM deck ${id}`}
-          />
-        </label>
+        {bpm != null ? (
+          <span className="bpm" title="BPM" aria-label={`BPM deck ${id}`}>
+            {Math.round(bpm * 10) / 10}
+          </span>
+        ) : null}
         <span className="time" title={`${formatTime(time)} / ${formatTime(duration)}`}>
           {formatTime(time)}
         </span>
+        <TipButton
+          className="icon-button tone-viz viz-toggle"
+          testId={`viz-${id}`}
+          label="Visualización"
+          tip={disc ? 'Visualización: disco. Tocá para ver el video plano' : 'Visualización: video plano. Tocá para ver el disco'}
+          pressed={disc}
+          onPress={() =>
+            setDisc((on) => {
+              const next = !on;
+              try {
+                writeDiscOn(window.localStorage, id, next);
+              } catch {
+                /* ignore */
+              }
+              return next;
+            })
+          }
+        >
+          <Icon name="viz" size={16} />
+        </TipButton>
       </header>
       <div className="deck-top">
         <div className="video-slot" ref={slotRef}>
@@ -627,29 +635,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
               <div className="yt-mount" ref={mountRef} />
             </div>
             {disc ? <div className="disc-hole" aria-hidden="true" /> : null}
-            <button
-              type="button"
-              className="icon-button tone-disc viz-toggle"
-              data-testid={`viz-${id}`}
-              title="Disco"
-              aria-label="Disco"
-              aria-pressed={disc}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                setDisc((on) => {
-                  const next = !on;
-                  try {
-                    writeDiscOn(window.localStorage, id, next);
-                  } catch {
-                    /* ignore */
-                  }
-                  return next;
-                });
-              }}
-            >
-              <Icon name="disc" size={16} />
-            </button>
           </div>
         </div>
         <div className="transport" data-testid={`transport-${id.toLowerCase()}`}>
@@ -732,6 +717,35 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 const TAP_TIP = 'Tocá al ritmo para medir el BPM';
 
 function TapButton({ disabled, onTap }: { disabled: boolean; onTap: () => void }) {
+  return (
+    <TipButton className="icon-button tone-tap" label="TAP" tip={TAP_TIP} disabled={disabled} onPress={onTap} wrapClass="tap-tip">
+      <Icon name="tap" />
+    </TipButton>
+  );
+}
+
+/** Icon button with a tooltip: on hover or focus, and on a long press on touch screens. */
+function TipButton({
+  className,
+  label,
+  tip,
+  disabled,
+  pressed,
+  testId,
+  wrapClass,
+  onPress,
+  children,
+}: {
+  className: string;
+  label: string;
+  tip: string;
+  disabled?: boolean;
+  pressed?: boolean;
+  testId?: string;
+  wrapClass?: string;
+  onPress: () => void;
+  children: ReactNode;
+}) {
   const tipId = useId();
   const [open, setOpen] = useState(false);
   const timer = useRef(0);
@@ -741,12 +755,14 @@ function TapButton({ disabled, onTap }: { disabled: boolean; onTap: () => void }
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   return (
-    <span className="tip tap-tip">
+    <span className={wrapClass ? `tip ${wrapClass}` : 'tip'}>
       <button
         type="button"
-        className="icon-button tone-tap"
-        aria-label="TAP"
+        className={className}
+        aria-label={label}
         aria-describedby={tipId}
+        aria-pressed={pressed}
+        data-testid={testId}
         disabled={disabled}
         onPointerEnter={(event) => {
           if (event.pointerType === 'touch') return;
@@ -782,13 +798,13 @@ function TapButton({ disabled, onTap }: { disabled: boolean; onTap: () => void }
             held.current = false;
             return;
           }
-          onTap();
+          onPress();
         }}
       >
-        <Icon name="tap" />
+        {children}
       </button>
       <span id={tipId} role="tooltip" className={open ? 'tip-pop is-on' : 'tip-pop'}>
-        {TAP_TIP}
+        {tip}
       </span>
     </span>
   );

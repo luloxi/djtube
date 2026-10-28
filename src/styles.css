@@ -91,8 +91,7 @@ input[type="decimal"] {
 input[type="url"]:focus,
 input[type="text"]:focus,
 input[type="search"]:focus,
-input[type="password"]:focus,
-.bpm input:focus {
+input[type="password"]:focus {
   outline: none;
   border-bottom-color: var(--amber);
 }
@@ -250,25 +249,12 @@ h2 {
   font-size: 13px;
 }
 
-.bpm { display: flex; align-items: center; }
-.bpm input {
-  width: 4.6ch;
+.bpm {
   font-size: 28px;
   font-weight: 680;
   line-height: 1;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  text-align: right;
-  min-height: 0;
-}
-
-.bpm input::placeholder {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 550;
 }
 
 .time {
@@ -298,7 +284,7 @@ h2 {
 
 .deck.disc-on .video-slot { align-items: center; }
 .deck.disc-on .deck-head { min-height: 26px; }
-.deck.disc-on .bpm input { font-size: 22px; }
+.deck.disc-on .bpm { font-size: 22px; }
 .deck.disc-on .wave-wrap,
 .deck.disc-on .wave,
 .deck.disc-on .wave-empty {
@@ -519,7 +505,7 @@ h2 {
 .tone-back { --neon: #c45cff; --neon-glow: rgba(196, 92, 255, 0.9); }
 .tone-speed { --neon: #ff8a1e; --neon-glow: rgba(255, 138, 30, 0.9); }
 .tone-tap { --neon: #3df0ff; --neon-glow: rgba(61, 240, 255, 0.9); }
-.tone-disc { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
+.tone-viz { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
 .tone-beat { --neon: #ff5c8a; --neon-glow: rgba(255, 92, 138, 0.9); }
 .tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
 
@@ -576,19 +562,21 @@ button[class*="tone-"]:focus-visible,
 }
 
 .viz-toggle {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 5;
   width: 28px;
   height: 28px;
   min-width: 28px;
   min-height: 28px;
 }
-.video-frame.as-disc .viz-toggle {
-  top: 18%;
-  right: 18%;
+.deck-head > .tip { flex: 0 0 auto; position: relative; }
+.deck-head .tip-pop {
+  bottom: auto;
+  top: calc(100% + 6px);
+  left: auto;
+  right: 0;
+  transform: none;
+  text-align: right;
 }
+.workspace.list-open .viz-toggle { display: none; }
 
 .tap-tip { position: relative; display: flex; min-width: 0; }
 .tap-tip > .icon-button { width: 100%; }
@@ -1517,7 +1505,7 @@ button.text-link:hover:not(:disabled) {
   .transport > .rate { height: 40px; min-height: 40px; }
   .mixer { height: 148px; grid-template-columns: 56px minmax(0, 1fr) 56px; }
   .sync-actions button { min-height: 44px; height: 44px; }
-  .bpm input { font-size: 26px; }
+  .bpm { font-size: 26px; }
   .sync-player { width: 120px; height: 68px; opacity: 0.35; }
 }
 
@@ -1541,7 +1529,7 @@ button.text-link:hover:not(:disabled) {
   .deck-top { display: flex; flex-direction: column; flex: 1 1 auto; }
   .wave-wrap, .wave, .wave-empty { flex: 0 1 36px; min-height: 28px; max-height: 48px; }
   .mixer { height: 108px; }
-  .bpm input { font-size: 22px; }
+  .bpm { font-size: 22px; }
   .deck-head { min-height: 32px; }
 }
 
@@ -1554,7 +1542,7 @@ button.text-link:hover:not(:disabled) {
   .fader-track { min-height: 44px; }
   .deck-head { min-height: 30px; }
   .deck.disc-on .deck-head { min-height: 24px; }
-  .bpm input { font-size: 20px; }
+  .bpm { font-size: 20px; }
 }
 
 /* Phones in portrait: two equal rows. Desktop and landscape stay on one row.

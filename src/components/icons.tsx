@@ -30,6 +30,7 @@ export type IconName =
   | 'prepare'
   | 'decks'
   | 'disc'
+  | 'viz'
   | 'mic'
   | 'camera'
   | 'beat'
@@ -174,6 +175,15 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <rect x="3" y="6" width="7" height="12" rx="1" />
       <rect x="14" y="6" width="7" height="12" rx="1" />
+    </>
+  ),
+  viz: (
+    <>
+      <path d="M4 10v4" />
+      <path d="M8 6v12" />
+      <path d="M12 3v18" />
+      <path d="M16 8v8" />
+      <path d="M20 11v2" />
     </>
   ),
   disc: (

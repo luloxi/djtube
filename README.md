@@ -2,18 +2,20 @@
 
 Dos videos de YouTube, un fader. Mezcla a oído: el crossfader no es una curva de potencia constante, en el centro suenan los dos al 100%.
 
-La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda a la izquierda, cortes a la derecha (se ocultan). El volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: sincronizador, grabar, admin (solo el dueño) y la cuenta, con salir en ese menú.
+La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda comparten el panel izquierdo y se alternan con iconos (no van apiladas). Cortes a la derecha (se ocultan). El volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: sincronizador, grabar, admin (solo el dueño) y la cuenta.
 
-En el móvil los dos decks van apilados, con miniatura 16:9, fader y play a la vista. Cola, búsqueda y cortes se abren desde la barra inferior. En horizontal, los decks vuelven a ir lado a lado.
+En el móvil los dos decks van apilados, con miniatura 16:9, fader y play a la vista, y una raya de color que separa A, B y el fader. Cola y búsqueda son dos botones grandes al centro de la barra; cortes a un lado. El icono de lista en cada deck abre la cola: un toque en el nombre carga ese deck. En las filas, A y B van a izquierda y derecha con el color del deck. Si la pantalla es alta, un recorte de la cola queda a la vista. En horizontal, los decks vuelven a ir lado a lado.
 
 ## Mezclar
 
 1. Pega un enlace de video o de playlist, o busca (si el worker tiene secreto).
 2. Carga un tema en A y otro en B. También puedes arrastrar.
-3. Play, cue, marcar, nudge y TAP son iconos (el nombre está en el tooltip y en `aria-label`). Cue vuelve al punto marcado y pausa. El BPM es el número grande de cada deck.
-4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra, igual que la onda (clic busca, arrastre marca un corte) y la velocidad.
-5. **Auto** desliza el fader al otro lado. Los segundos se arrastran.
-6. Nudge − / + cambia un momento a la velocidad vecina que el player permita. La velocidad se arrastra entre los valores de `getAvailablePlaybackRates()`.
+3. Play, cue, marcar, nudge y TAP son iconos (el nombre está en el tooltip y en `aria-label`). Cue vuelve al punto marcado y pausa. El BPM es el número grande de cada deck. Play es el botón grande; el video no tiene fullscreen (`fs: 0`).
+4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra, igual que la onda (clic busca, arrastre marca un corte).
+5. **Auto** (junto al fader) desliza A↔B. Por defecto dura 3 s; los segundos se arrastran.
+6. La velocidad tiene − / + a los costados. Arrastrar el número sigue valiendo; un toque sin arrastre abre las velocidades que permite YouTube, las altas arriba y las bajas abajo.
+7. Cuatro pads de cue por deck: toque para marcar, toque para saltar, mantener o clic derecho para borrar. Quedan en IndexedDB por `videoId`.
+8. Al cargar un tema, el deck lo precarga (play mudo, pausa en 0) para que el arranque salga más a tiempo.
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
 
@@ -31,7 +33,13 @@ Si el número no convence: **TAP** o edítalo a mano. Con BPM en los dos decks, 
 
 Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. **Audio** descarga el tramo en `.webm` solo si esa zona se capturó antes en este navegador. El sincronizador no guarda el clip: el audio va acelerado y no coincide con el reloj del tema.
 
-**Grabar**, en la barra inferior, usa la captura de pantalla del navegador (vídeo + audio) y al parar descarga la sesión.
+**Grabar**, en la barra inferior, usa la captura de pantalla cuando el navegador la tiene. En Chrome de Android no hay `getDisplayMedia`: se graba el micrófono con un `mimeType` que `MediaRecorder.isTypeSupported` acepte (`video/mp4`, `audio/webm`, etc.). Si no hay nada que grabar, el botón queda deshabilitado.
+
+La cola se puede vaciar: no saca los temas que están en A o en B.
+
+Admin se abre encima de la mezcla, sin desmontar los decks. El dueño ve un contador de pedidos pendientes en el icono (se consulta cada tanto). Aviso por push o email queda pendiente de decisión.
+
+En el menú de cuenta: [Contacto](https://lulox.com.ar/contacto) y el [repo](https://github.com/luloxi/djtube). Se puede instalar como PWA (manifiesto + iconos + service worker). Un aviso ofrece instalar, cerrar, o no mostrar más.
 
 Los cortes, la onda y el audio se quedan en este navegador. Para mezclar hay que entrar.
 

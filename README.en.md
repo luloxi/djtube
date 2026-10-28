@@ -2,11 +2,11 @@
 
 Two YouTube videos, one fader. You beatmatch by ear. The transition is not constant-power: at the center both decks stay at 100%. Far left is only A, far right is only B. Each deck has its own volume; the percentages on the fader are transition × volume.
 
-The mixer fills the viewport (`100dvh`), edge to edge, with no title and no top bar. From 1024px the decks sit side by side: queue and search on the left, highlights on the right (collapsible). Volume A, the crossfader, and volume B are one block under the decks. A bottom icon bar holds the synchronizer, record, admin (owner only), and the account menu, which contains sign out.
+The mixer fills the viewport (`100dvh`), edge to edge, with no title and no top bar. From 1024px the decks sit side by side: queue and search share the left slot and switch with icons (not stacked). Highlights on the right (collapsible). Volume A, the crossfader, and volume B are one block under the decks. A bottom icon bar holds the synchronizer, record, admin (owner only), and the account menu.
 
-On a phone the decks stack as 16:9 thumbnails with the fader and play buttons in the first screen. Queue, search, and highlights open from the bottom bar. In landscape the decks sit side by side again.
+On a phone the decks stack as 16:9 thumbnails with the fader and play in the first screen, and a color edge between A, B, and the fader. Queue and search are two large centered buttons; highlights sit with the rest of the dock. Each deck has a list icon: tap a title to load that deck. In the list, A and B sit on the left and right with the deck colors. A queue strip appears only when the viewport is tall enough. In landscape the decks sit side by side again.
 
-Paste a video or playlist URL, or search when the Worker has a YouTube Data API key. Drag or click a track onto deck A or B. Play, pause, cue, nudge, and drag the playback rate across the values the player actually allows. **Auto** glides the fader to the other side; drag the seconds. Controls are icons, with the words in the tooltip and `aria-label`. BPM is the large number on each deck. Status text is a short toast.
+Paste a video or playlist URL, or search when the Worker has a YouTube Data API key. Drag or tap A/B on a row. Play is the large button; the iframe has `fs: 0` and does not take pointer events, so YouTube fullscreen stays off. Playback rate has − / +; tap the number (without dragging) for the YouTube rates, higher above and lower below. **Auto** next to the fader glides A↔B in 3 s by default; drag the seconds. Four hot-cue pads per deck (tap to set, tap to jump, long-press or right-click to clear) live in IndexedDB by `videoId`. Cueing a track muted-prerolls it so play starts tighter. Controls are icons, with the words in the tooltip and `aria-label`. BPM is the large number on each deck. Status text is a short toast.
 
 The iframe does not expose audio, and analyzing inside a deck silences the mix. The waveform icon on the bottom bar (**Sincronizador**) opens `/sync` in another tab, behind the same sign-in. The same icon on a deck opens that tab for the loaded track.
 
@@ -18,7 +18,11 @@ The list shows queued, analyzing (with progress), ready with BPM, or error with 
 
 TAP and the manual BPM field stay as the fallback. When both decks have a BPM, the mixer shows a button that applies a `playbackRate` snapped to a rate the player actually allows.
 
-Drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight `.webm` stays disabled unless that region was captured before — the sync pass does not store a clip, because the audio is sped up. **Grabar** on the bottom bar records the mixer tab with `getDisplayMedia` and downloads a `.webm`.
+Drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight `.webm` stays disabled unless that region was captured before — the sync pass does not store a clip, because the audio is sped up. **Grabar** uses `getDisplayMedia` when it exists. Android Chrome has no display capture: it falls back to the microphone with a `MediaRecorder` mime the device reports via `isTypeSupported` (`video/mp4` / `audio/webm`). If nothing can be recorded, the button is disabled.
+
+Clear list keeps whatever is loaded on A or B. Admin opens as a sheet over the mixer so playback is not torn down. The owner sees a pending-request badge on the admin icon (polled). Push or email for those requests still needs a decision.
+
+The account menu has [contact](https://lulox.com.ar/contacto) and the [repo](https://github.com/luloxi/djtube). The app is installable (manifest, icons, a tiny service worker) with a dismissible prompt (`Cerrar` / `No mostrar más`).
 
 Highlights, waveforms, and captured audio stay in the browser. The mixer itself asks you to sign in.
 

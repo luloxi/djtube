@@ -43,8 +43,6 @@ export function Header({
   desktop = false,
   webcamOn = false,
   onWebcam,
-  chromeOn = true,
-  onChrome,
   onResetLayout,
 }: {
   onStatus: (message: string) => void;
@@ -61,8 +59,6 @@ export function Header({
   desktop?: boolean;
   webcamOn?: boolean;
   onWebcam?: () => void;
-  chromeOn?: boolean;
-  onChrome?: () => void;
   onResetLayout?: () => void;
 }) {
   const [recording, setRecording] = useState(false);
@@ -205,9 +201,6 @@ export function Header({
             <button type="button" className="icon-button" aria-pressed={prepararPane === 'cuts'} aria-label="Cortes" title="Cortes" onClick={() => onPrepararPane?.('cuts')}>
               <Icon name="cuts" />
             </button>
-            <button type="button" className="icon-button" aria-pressed={prepararPane === 'pads'} aria-label="Pads" title="Pads" onClick={() => onPrepararPane?.('pads')}>
-              <Icon name="pads" />
-            </button>
           </>
         ) : null}
       </div>
@@ -235,11 +228,6 @@ export function Header({
       {desktop && mode === 'dj' && onWebcam ? (
         <button type="button" className="icon-button" aria-pressed={webcamOn} aria-label="Cámara" title="Cámara" onClick={onWebcam}>
           <Icon name="camera" />
-        </button>
-      ) : null}
-      {desktop && onChrome ? (
-        <button type="button" className="icon-button" aria-pressed={chromeOn} aria-label={chromeOn ? 'Ocultar menú' : 'Mostrar menú'} title={chromeOn ? 'Ocultar menú' : 'Mostrar menú'} onClick={onChrome}>
-          <Icon name={chromeOn ? 'eye' : 'eye-off'} />
         </button>
       ) : null}
       <button

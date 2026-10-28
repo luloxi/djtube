@@ -86,7 +86,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const created = useRef(false);
   const gainRef = useRef(gain);
   const rateRef = useRef(playbackRate);
-  const nudgeSaved = useRef<number | null>(null);
   const ratesRef = useRef<number[]>(DEFAULT_RATES);
   const taps = useRef<number[]>([]);
   const [ready, setReady] = useState(false);
@@ -114,7 +113,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     rate: number;
     seekAt: number;
   } | null>(null);
-  const [disc, setDisc] = useState(false);
+  const [disc, setDisc] = useState(true);
   const [jogging, setJogging] = useState(false);
 
   gainRef.current = gain;
@@ -252,9 +251,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 
   useEffect(() => {
     try {
-      setDisc(window.localStorage.getItem(`djtube-disc-${id}`) === '1');
+      setDisc(window.localStorage.getItem(`djtube-disc-${id}`) !== '0');
     } catch {
-      setDisc(false);
+      setDisc(true);
     }
   }, [id]);
 
@@ -463,12 +462,11 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   }, [videoId, ready]);
 
   useEffect(() => {
-    if (nudgeSaved.current != null) return;
     applyGain(gain);
   }, [gain, ready]);
 
   useEffect(() => {
-    if (!ready || nudgeSaved.current != null) return;
+    if (!ready || joggingRef.current) return;
     try {
       playerRef.current?.setPlaybackRate(playbackRate);
     } catch {
@@ -494,23 +492,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     }, 200);
     return () => window.clearInterval(timer);
   }, []);
-
-  function nudge(direction: -1 | 1, active: boolean) {
-    const player = playerRef.current;
-    if (!player) return;
-    try {
-      if (active) {
-        if (nudgeSaved.current == null) nudgeSaved.current = player.getPlaybackRate?.() ?? playbackRate;
-        player.setPlaybackRate(nudgedRate(nudgeSaved.current, direction, ratesRef.current));
-      } else if (nudgeSaved.current != null) {
-        player.setPlaybackRate(nudgeSaved.current);
-        nudgeSaved.current = null;
-        onRate(player.getPlaybackRate());
-      }
-    } catch {
-      nudgeSaved.current = null;
-    }
-  }
 
   function tap() {
     const now = performance.now();
@@ -604,17 +585,19 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         </span>
       </header>
       <div className="deck-top">
-        <div
-          className={disc && videoId ? (jogging ? 'video-frame as-disc jogging' : 'video-frame as-disc') : videoId ? 'video-frame' : 'video-frame empty'}
-          onPointerDown={onJogDown}
-          onPointerMove={onJogMove}
-          onPointerUp={(event) => endJog(event.pointerId)}
-          onPointerCancel={(event) => endJog(event.pointerId)}
-        >
-          <div className="disc-rot" ref={spinRef}>
-            <div className="yt-mount" ref={mountRef} />
+        <div className="video-slot">
+          <div
+            className={disc && videoId ? (jogging ? 'video-frame as-disc jogging' : 'video-frame as-disc') : videoId ? 'video-frame' : 'video-frame empty'}
+            onPointerDown={onJogDown}
+            onPointerMove={onJogMove}
+            onPointerUp={(event) => endJog(event.pointerId)}
+            onPointerCancel={(event) => endJog(event.pointerId)}
+          >
+            <div className="disc-rot" ref={spinRef}>
+              <div className="yt-mount" ref={mountRef} />
+            </div>
+            {disc && videoId ? <div className="disc-hole" aria-hidden="true" /> : null}
           </div>
-          {disc && videoId ? <div className="disc-hole" aria-hidden="true" /> : null}
         </div>
         <div className="transport">
           <button
@@ -626,7 +609,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             disabled={!videoId}
             onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())}
           >
-            <Icon name={playing ? 'pause' : 'play'} size={28} />
+            <Icon name={playing ? 'pause' : 'play'} size={18} />
           </button>
           <button
             type="button"
@@ -641,7 +624,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           <TapButton disabled={!videoId} onTap={tap} />
           <button
             type="button"
-            className="icon-button"
+            className="icon-button tone-disc"
             title="Disco"
             aria-label="Disco"
             aria-pressed={disc}
@@ -663,7 +646,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           {onStartSynced ? (
             <button
               type="button"
-              className="icon-button"
+              className="icon-button tone-beat"
               title="Entrar en beat"
               aria-label="Entrar en beat"
               disabled={!videoId || !syncReady}
@@ -672,39 +655,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
               <Icon name="beat" />
             </button>
           ) : null}
-        </div>
-        <div className="speed">
-          <button
-            type="button"
-            className="icon-button tone-speed"
-            title="Nudge −"
-            aria-label="Nudge −"
-            disabled={!videoId}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              nudge(-1, true);
-            }}
-            onPointerUp={() => nudge(-1, false)}
-            onPointerCancel={() => nudge(-1, false)}
-          >
-            <Icon name="nudge-left" />
-          </button>
           <RateDrag rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} />
-          <button
-            type="button"
-            className="icon-button tone-speed"
-            title="Nudge +"
-            aria-label="Nudge +"
-            disabled={!videoId}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              nudge(1, true);
-            }}
-            onPointerUp={() => nudge(1, false)}
-            onPointerCancel={() => nudge(1, false)}
-          >
-            <Icon name="nudge-right" />
-          </button>
         </div>
       </div>
       <div className="wave-wrap">

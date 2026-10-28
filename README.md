@@ -2,7 +2,7 @@
 
 Dos videos de YouTube, un fader. Mezcla a oído: el crossfader no es una curva de potencia constante, en el centro suenan los dos al 100%.
 
-La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es sincronizador, cortes y pads. DJ es los dos decks y el mixer. La elección queda en `djtube-mode` y se cambia desde la barra de abajo. `/sync` abre Preparar.
+La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es el sincronizador y los cortes. No hay pads ni hot cues. DJ es los dos decks y el mixer. La elección queda en `djtube-mode` y se cambia desde la barra de abajo. `/sync` abre Preparar.
 
 La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda comparten el panel izquierdo y se alternan con iconos (no van apiladas). En DJ el volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: modo, grabar, admin (solo el dueño) y la cuenta.
 
@@ -12,11 +12,11 @@ En el móvil los dos decks van apilados, con miniatura 16:9, fader y play a la v
 
 1. Pega un enlace de video o de playlist, o busca (si el worker tiene secreto).
 2. Carga un tema en A y otro en B. También puedes arrastrar.
-3. Play, volver al principio, nudge y TAP son iconos (el nombre está en el tooltip y en `aria-label`). Volver pausa y busca el inicio (0:00). El BPM es el número grande de cada deck. Play es el botón grande; el video no tiene fullscreen (`fs: 0`).
+3. En cada deck, play, volver, TAP, disco, entrar en beat y la velocidad van en una sola fila, todos del mismo alto. Volver pausa y busca el inicio (0:00). El BPM es el número de cada deck. El video no tiene fullscreen (`fs: 0`).
 4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra, igual que la onda (clic busca, arrastre marca un corte).
 5. **Auto** (junto al fader) desliza A↔B. Por defecto dura 3 s; los segundos se arrastran.
-6. Cada deck tiene un solo − a la izquierda del número de velocidad y un solo + a la derecha, en cualquier ancho. Los nudges (mantener) van al lado. Arrastrar el número sigue valiendo; un toque sin arrastre abre las velocidades que permite YouTube, las altas arriba y las bajas abajo.
-7. Play es menta, volver lavanda, la velocidad (nudges, −, número, +) durazno y TAP celeste. TAP muestra «Tocá al ritmo para medir el BPM» al pasar el mouse y, en el teléfono, al mantenerlo pulsado.
+6. Cada deck tiene un solo − a la izquierda del número de velocidad y un solo + a la derecha, en cualquier ancho. No hay botones « » al lado. Arrastrar el número sigue valiendo, igual que las flechas del teclado; un toque sin arrastre abre las velocidades que permite YouTube, las altas arriba y las bajas abajo. Arrastrar el disco también busca.
+7. Play es menta, volver lavanda, la velocidad durazno, TAP celeste, el disco manteca y entrar en beat rosa. Al pasar el mouse, al enfocar y al pulsar, cada botón se aclara y brilla en su propio color: no se pone negro. TAP muestra «Tocá al ritmo para medir el BPM» al pasar el mouse y, en el teléfono, al mantenerlo pulsado.
 8. Al cargar un tema, el deck lo precarga (play mudo, pausa en 0) para que el arranque salga más a tiempo.
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
@@ -33,11 +33,11 @@ El iframe no entrega el audio. Analizar el tema que está sonando, en vivo, no s
 
 Si el número no convence: **TAP** o edítalo a mano. Con BPM y offset, cada onda muestra la grilla (el downbeat ancla el cero). **Entrar en beat** espera el próximo beat del otro deck y arranca ahí. **Igualar BPM** (se recuerda) acerca el `playbackRate` y vuelve a ×1 en escalones. YouTube solo tiene velocidades discretas. Sin offset, la grilla no se dibuja. Los avisos son un toast corto.
 
-En DJ, el icono de disco de cada deck muestra el video como un disco que gira mientras suena (33⅓). Arrastrar busca: hacia adelante sube un momento la velocidad, hacia atrás pausa y busca (YouTube no reproduce al revés). Al soltar vuelve el estado anterior.
+En DJ, el icono de disco de cada deck muestra el video como un disco que gira mientras suena (33⅓). Empieza prendido. Solo queda apagado si en este navegador se apagó (`djtube-disc-A` o `djtube-disc-B` en `0`). Arrastrar busca: hacia adelante sube un momento la velocidad, hacia atrás pausa y busca (YouTube no reproduce al revés). Al soltar vuelve el estado anterior. El video ocupa el alto y el ancho que le caben (16:9, o un cuadrado si el disco está prendido) y los controles quedan pegados debajo.
 
 El micrófono de la barra (apagado por defecto) entra por Web Audio: tono (±12 semitonos), volumen y reverb. Si está prendido al grabar, se mezcla; no abre un segundo micrófono. Si se prende durante la toma, entra igual.
 
-En escritorio (1024px y puntero fino) se puede mostrar la cámara, y cola, decks, mixer y cámara se arrastran y se redimensionan. El layout queda en `djtube-layout`. **Restablecer** está en la cuenta. `\` oculta la barra; el borde inferior la vuelve a mostrar. En el teléfono nada de esto: la grilla fija no se mueve.
+En escritorio (1024px y puntero fino) la cola, los dos decks y el mixer son una sola grilla. Arrastrar un borde reparte el lugar: la cola más ancha achica los dos decks, un deck más ancho achica al otro, el mixer más alto achica la fila de decks. Nada se sale de la mesa ni se pisa. Al cambiar el tamaño de la ventana, lo guardado se vuelve a encajar, también si venía de un layout viejo más grande que la pantalla. La cámara, si está prendida, flota encima y también queda dentro de la mesa. El layout queda en `djtube-layout`. **Restablecer** está en la cuenta. La barra de abajo no se esconde. En el teléfono la grilla fija no se mueve.
 
 Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. **Audio** descarga el tramo en `.webm` solo si esa zona se capturó antes en este navegador. El sincronizador no guarda el clip: el audio va acelerado y no coincide con el reloj del tema.
 
@@ -47,7 +47,7 @@ La cola se puede vaciar: no saca los temas que están en A o en B. Deslizar una 
 
 Admin se abre encima de la mezcla, sin desmontar los decks. El dueño ve un contador de pedidos pendientes en el icono (se consulta cada tanto). La campana de admin activa el push en ese teléfono. Quien está en espera puede activarla también. Un pedido nuevo avisa al dueño. Al aprobar, si esa persona se suscribió, también le llega un push, y un mail por Resend desde `DJTube <no-responder@lulox.com.ar>` (o `APPROVAL_FROM`). Si el mail falla, se anota en el log y la aprobación queda igual.
 
-En el menú de cuenta: [Contacto](https://lulox.com.ar/contacto) y el [repo](https://github.com/luloxi/djtube). Se puede instalar como PWA (manifiesto + iconos + service worker). Un aviso ofrece instalar, cerrar, o no mostrar más.
+En el menú de cuenta: [Contacto](https://lulox.com.ar/contacto) y el [repo](https://github.com/luloxi/djtube). Se puede instalar como PWA (manifiesto + iconos + service worker). El icono es el logo de los dos platos, el mismo del portfolio (`public/djtube.svg`): 192, 512 y uno maskable con margen sobre `#1a1216`. En Android, si la app ya estaba instalada, hay que reinstalarla para ver el icono nuevo. Un aviso ofrece instalar, cerrar, o no mostrar más.
 
 Los cortes y el audio de un corte se quedan en este navegador. BPM, offset y picos se sincronizan a la cuenta. Para mezclar hay que entrar.
 

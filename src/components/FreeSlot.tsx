@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { moveBox, resizeBox, type PanelBox } from '../lib/layout';
+import { moveWebcam, resizeWebcam, type PanelBox } from '../lib/layout';
 
 export function FreeSlot({
   active,
@@ -30,7 +30,7 @@ export function FreeSlot({
     if (!current || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
     const dx = ((event.clientX - current.x) / current.w) * 100;
     const dy = ((event.clientY - current.y) / current.h) * 100;
-    const next = current.kind === 'move' ? moveBox(current.box, dx, dy) : resizeBox(current.box, dx, dy);
+    const next = current.kind === 'move' ? moveWebcam(current.box, dx, dy) : resizeWebcam(current.box, dx, dy);
     current.last = next;
     onBox(next, false);
   }

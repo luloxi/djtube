@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { AnalysisMeta, AudioCoverage, DeckId, DeckModel, Highlight, Track } from './types';
 import { DEFAULT_RATES, emptyDeck } from './types';
 import { normalizePath } from './lib/access';
 import { readStoredMode, storeMode, type AppMode, type PrepararPane } from './lib/mode';
-import { DEFAULT_LAYOUT, readLayout, storeLayout, type DeskLayout, type PanelId } from './lib/layout';
+import { clampLayout, layoutChanged, readLayout, storeLayout, type Bounds, type DeskLayout, type PanelBox } from './lib/layout';
 import { AdminPanel } from './components/AdminPanel';
 import { Deck, type DeckHandle } from './components/Deck';
 import { FreeSlot } from './components/FreeSlot';
+import { SplitBars } from './components/SplitBars';
 import { Icon } from './components/icons';
 import { WebcamTile } from './components/WebcamTile';
 import { Header, type SideTab } from './components/Header';
@@ -31,6 +32,11 @@ import { openSyncChannel, parseSyncMessage } from './lib/sync-channel';
 import { collectTracks } from './lib/sync-queue';
 import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds } from './lib/youtube';
 import { readPlaylistIds } from './lib/youtube-api';
+
+function deskBounds(): Bounds {
+  if (typeof window === 'undefined') return { width: 1440, height: 900 };
+  return { width: window.innerWidth, height: Math.max(1, window.innerHeight - 44) };
+}
 
 export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?: () => void } = {}) {
   const [x, setX] = useState(0.5);
@@ -62,7 +68,12 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     }
   });
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches);
-  const [layout, setLayout] = useState<DeskLayout>(() => readLayout(window.localStorage));
+  const [layout, setLayout] = useState<DeskLayout>(() => {
+    const bounds = deskBounds();
+    const next = readLayout(window.localStorage, bounds);
+    storeLayout(window.localStorage, next, bounds);
+    return next;
+  });
   const [webcamOn, setWebcamOn] = useState(() => {
     try {
       return window.localStorage.getItem('djtube-webcam') === '1';
@@ -70,14 +81,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       return false;
     }
   });
-  const [chromeOn, setChromeOn] = useState(() => {
-    try {
-      return window.localStorage.getItem('djtube-chrome') !== '0';
-    } catch {
-      return true;
-    }
-  });
   const easeTimers = useRef<number[]>([]);
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1024px) and (pointer: fine)');
@@ -88,52 +93,54 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   }, []);
 
   useEffect(() => {
-    if (!desktop) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== '\\' || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;
-      }
-      event.preventDefault();
-      setChromeOn((on) => {
-        const next = !on;
-        try {
-          window.localStorage.setItem('djtube-chrome', next ? '1' : '0');
-        } catch {
-          /* ignore */
-        }
+    try {
+      window.localStorage.removeItem('djtube-chrome');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = workspaceRef.current;
+    if (!desktop || !el) return;
+    const fit = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) return;
+      setLayout((prev) => {
+        const next = clampLayout(prev, rect);
+        if (!layoutChanged(prev, next)) return prev;
+        storeLayout(window.localStorage, next, rect);
         return next;
       });
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [desktop]);
 
-  function place(id: PanelId, box: DeskLayout[PanelId], persist: boolean) {
+  function deskNow(): Bounds {
+    const rect = workspaceRef.current?.getBoundingClientRect();
+    if (rect && rect.width > 8 && rect.height > 8) return rect;
+    return deskBounds();
+  }
+
+  function commitLayout(next: DeskLayout, persist: boolean) {
+    setLayout(next);
+    if (persist) storeLayout(window.localStorage, next, deskNow());
+  }
+
+  function placeWebcam(box: PanelBox, persist: boolean) {
     setLayout((prev) => {
-      const next = { ...prev, [id]: box };
-      if (persist) storeLayout(window.localStorage, next);
+      const next = { ...prev, webcam: box };
+      if (persist) storeLayout(window.localStorage, next, deskNow());
       return next;
     });
   }
 
   function resetLayout() {
-    setLayout(DEFAULT_LAYOUT);
-    storeLayout(window.localStorage, DEFAULT_LAYOUT);
-  }
-
-  function toggleChrome() {
-    setChromeOn((on) => {
-      const next = !on;
-      try {
-        window.localStorage.setItem('djtube-chrome', next ? '1' : '0');
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    const next = clampLayout({ queue: 0.22, decks: 0.5, mixer: 0.32, webcam: { x: 70, y: 6, w: 24, h: 28 } }, deskNow());
+    commitLayout(next, true);
   }
 
   function toggleWebcam() {
@@ -645,23 +652,32 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   }
 
   return (
-    <div className={desktop && !chromeOn ? 'shell chrome-off' : 'shell'} data-mode={mode} data-testid="app">
+    <div className="shell" data-mode={mode} data-testid="app">
       {mode === 'preparar' ? (
         <Preparar
           pane={prepararPane}
-          tracks={library}
           highlights={highlights}
           coverage={coverage}
           onHighlights={setHighlights}
           onPlayHighlight={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
           onDownload={downloadHighlight}
           onStatus={setStatus}
-          onAdd={(url) => void ingest(url, 'queue')}
         />
       ) : null}
       {mode === 'dj' ? (
-      <div className={desktop ? 'workspace is-free' : 'workspace'}>
-        <FreeSlot active={desktop} box={layout.queue} onBox={(box, persist) => place('queue', box, persist)}>
+      <div
+        ref={workspaceRef}
+        className={desktop ? 'workspace is-split' : 'workspace'}
+        style={
+          desktop
+            ? ({
+                '--split-queue': layout.queue,
+                '--split-decks': layout.decks,
+                '--split-mixer': layout.mixer,
+              } as CSSProperties)
+            : undefined
+        }
+      >
         <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
           <div className="side-tabs">
             <button type="button" className="icon-button" aria-pressed={leftPane === 'queue'} aria-label="Cola" title="Cola" onClick={() => selectLeft('queue')}>
@@ -687,11 +703,9 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             <SearchBox onLoad={(track, id) => void loadInto(id, track)} />
           </div>
         </aside>
-        </FreeSlot>
-        <main className={desktop ? 'stage stage-free' : 'stage'}>
-          <div className={desktop ? 'decks decks-free' : 'decks'}>
+        <main className="stage">
+          <div className="decks">
             {(['A', 'B'] as const).map((id) => (
-              <FreeSlot key={id} active={desktop} box={layout[id === 'A' ? 'deckA' : 'deckB']} onBox={(box, persist) => place(id === 'A' ? 'deckA' : 'deckB', box, persist)}>
               <Deck
                 key={id}
                 ref={id === 'A' ? deckA : deckB}
@@ -732,7 +746,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 syncReady={Boolean(decks[id === 'A' ? 'B' : 'A'].bpm)}
                 onStartSynced={() => startSynced(id)}
               />
-              </FreeSlot>
             ))}
           </div>
           <div className="queue-strip" aria-label="Cola">
@@ -748,7 +761,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
               onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
             />
           </div>
-          <FreeSlot active={desktop} box={layout.mixer} onBox={(box, persist) => place('mixer', box, persist)}>
           <Transition
             x={x}
             gainA={shownA}
@@ -794,13 +806,13 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
               }}
             />
           </Transition>
-          </FreeSlot>
-          {desktop && webcamOn ? (
-            <FreeSlot active box={layout.webcam} onBox={(box, persist) => place('webcam', box, persist)}>
-              <WebcamTile onStatus={setStatus} />
-            </FreeSlot>
-          ) : null}
         </main>
+        {desktop && webcamOn ? (
+          <FreeSlot active box={layout.webcam} onBox={placeWebcam}>
+            <WebcamTile onStatus={setStatus} />
+          </FreeSlot>
+        ) : null}
+        {desktop ? <SplitBars layout={layout} onLayout={commitLayout} /> : null}
       </div>
       ) : null}
       <Header
@@ -816,8 +828,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         desktop={desktop}
         webcamOn={webcamOn}
         onWebcam={toggleWebcam}
-        chromeOn={chromeOn}
-        onChrome={toggleChrome}
         onResetLayout={desktop ? resetLayout : undefined}
         onAdmin={() => setAdminOpen(true)}
         onTab={(next) => {

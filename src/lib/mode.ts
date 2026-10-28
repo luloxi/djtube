@@ -1,5 +1,5 @@
 export type AppMode = 'preparar' | 'dj';
-export type PrepararPane = 'sync' | 'cuts' | 'pads';
+export type PrepararPane = 'sync' | 'cuts';
 
 export const MODE_KEY = 'djtube-mode';
 

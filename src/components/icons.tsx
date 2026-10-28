@@ -5,8 +5,6 @@ export type IconName =
   | 'pause'
   | 'cue'
   | 'mark'
-  | 'nudge-left'
-  | 'nudge-right'
   | 'tap'
   | 'analyze'
   | 'record'
@@ -31,14 +29,11 @@ export type IconName =
   | 'code'
   | 'prepare'
   | 'decks'
-  | 'pads'
   | 'disc'
   | 'mic'
   | 'camera'
   | 'beat'
   | 'reset'
-  | 'eye'
-  | 'eye-off'
   | 'reverb'
   | 'bell';
 
@@ -52,18 +47,6 @@ const ICONS: Record<IconName, ReactNode> = {
     </>
   ),
   mark: <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />,
-  'nudge-left': (
-    <>
-      <path d="m11 17-5-5 5-5" />
-      <path d="m18 17-5-5 5-5" />
-    </>
-  ),
-  'nudge-right': (
-    <>
-      <path d="m6 17 5-5-5-5" />
-      <path d="m13 17 5-5-5-5" />
-    </>
-  ),
   tap: (
     <>
       <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
@@ -192,14 +175,6 @@ const ICONS: Record<IconName, ReactNode> = {
       <rect x="14" y="6" width="7" height="12" rx="1" />
     </>
   ),
-  pads: (
-    <>
-      <rect x="4" y="4" width="6" height="6" rx="1" />
-      <rect x="14" y="4" width="6" height="6" rx="1" />
-      <rect x="4" y="14" width="6" height="6" rx="1" />
-      <rect x="14" y="14" width="6" height="6" rx="1" />
-    </>
-  ),
   disc: (
     <>
       <circle cx="12" cy="12" r="8" />
@@ -232,19 +207,6 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="M4 12a8 8 0 1 0 2.3-5.7" />
       <path d="M4 4v5h5" />
-    </>
-  ),
-  eye: (
-    <>
-      <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z" />
-      <circle cx="12" cy="12" r="2.5" />
-    </>
-  ),
-  'eye-off': (
-    <>
-      <path d="M3 3l18 18" />
-      <path d="M10.5 6.2A10 10 0 0 1 12 6c6 0 10 6 10 6a16 16 0 0 1-3.2 3.6" />
-      <path d="M6.1 6.1C3.6 7.8 2 12 2 12a16 16 0 0 0 6.2 5.2" />
     </>
   ),
   reverb: (

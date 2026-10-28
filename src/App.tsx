@@ -3,9 +3,12 @@ import type { AnalysisMeta, AudioCoverage, DeckId, DeckModel, Highlight, Track }
 import { DEFAULT_RATES, emptyDeck } from './types';
 import { normalizePath } from './lib/access';
 import { readStoredMode, storeMode, type AppMode, type PrepararPane } from './lib/mode';
+import { DEFAULT_LAYOUT, readLayout, storeLayout, type DeskLayout, type PanelId } from './lib/layout';
 import { AdminPanel } from './components/AdminPanel';
 import { Deck, type DeckHandle } from './components/Deck';
+import { FreeSlot } from './components/FreeSlot';
 import { Icon } from './components/icons';
+import { WebcamTile } from './components/WebcamTile';
 import { Header, type SideTab } from './components/Header';
 import { InstallBanner } from './components/InstallBanner';
 import { Library } from './components/Library';
@@ -58,7 +61,92 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       return false;
     }
   });
+  const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches);
+  const [layout, setLayout] = useState<DeskLayout>(() => readLayout(window.localStorage));
+  const [webcamOn, setWebcamOn] = useState(() => {
+    try {
+      return window.localStorage.getItem('djtube-webcam') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [chromeOn, setChromeOn] = useState(() => {
+    try {
+      return window.localStorage.getItem('djtube-chrome') !== '0';
+    } catch {
+      return true;
+    }
+  });
   const easeTimers = useRef<number[]>([]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px) and (pointer: fine)');
+    const apply = () => setDesktop(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+
+  useEffect(() => {
+    if (!desktop) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '\\' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;
+      }
+      event.preventDefault();
+      setChromeOn((on) => {
+        const next = !on;
+        try {
+          window.localStorage.setItem('djtube-chrome', next ? '1' : '0');
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [desktop]);
+
+  function place(id: PanelId, box: DeskLayout[PanelId], persist: boolean) {
+    setLayout((prev) => {
+      const next = { ...prev, [id]: box };
+      if (persist) storeLayout(window.localStorage, next);
+      return next;
+    });
+  }
+
+  function resetLayout() {
+    setLayout(DEFAULT_LAYOUT);
+    storeLayout(window.localStorage, DEFAULT_LAYOUT);
+  }
+
+  function toggleChrome() {
+    setChromeOn((on) => {
+      const next = !on;
+      try {
+        window.localStorage.setItem('djtube-chrome', next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  function toggleWebcam() {
+    setWebcamOn((on) => {
+      const next = !on;
+      try {
+        window.localStorage.setItem('djtube-webcam', next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   function chooseMode(next: AppMode) {
     setMode(next);
@@ -541,7 +629,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   }
 
   return (
-    <div className="shell" data-mode={mode} data-testid="app">
+    <div className={desktop && !chromeOn ? 'shell chrome-off' : 'shell'} data-mode={mode} data-testid="app">
       {mode === 'preparar' ? (
         <Preparar
           pane={prepararPane}
@@ -556,7 +644,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         />
       ) : null}
       {mode === 'dj' ? (
-      <div className="workspace">
+      <div className={desktop ? 'workspace is-free' : 'workspace'}>
+        <FreeSlot active={desktop} box={layout.queue} onBox={(box, persist) => place('queue', box, persist)}>
         <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
           <div className="side-tabs">
             <button type="button" className="icon-button" aria-pressed={leftPane === 'queue'} aria-label="Cola" title="Cola" onClick={() => selectLeft('queue')}>
@@ -580,9 +669,11 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             <SearchBox onLoad={(track, id) => void loadInto(id, track)} />
           </div>
         </aside>
-        <main className="stage">
-          <div className="decks">
+        </FreeSlot>
+        <main className={desktop ? 'stage stage-free' : 'stage'}>
+          <div className={desktop ? 'decks decks-free' : 'decks'}>
             {(['A', 'B'] as const).map((id) => (
+              <FreeSlot key={id} active={desktop} box={layout[id === 'A' ? 'deckA' : 'deckB']} onBox={(box, persist) => place(id === 'A' ? 'deckA' : 'deckB', box, persist)}>
               <Deck
                 key={id}
                 ref={id === 'A' ? deckA : deckB}
@@ -629,6 +720,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 syncReady={Boolean(decks[id === 'A' ? 'B' : 'A'].bpm)}
                 onStartSynced={() => startSynced(id)}
               />
+              </FreeSlot>
             ))}
           </div>
           <div className="queue-strip" aria-label="Cola">
@@ -642,6 +734,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
               onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
             />
           </div>
+          <FreeSlot active={desktop} box={layout.mixer} onBox={(box, persist) => place('mixer', box, persist)}>
           <Transition
             x={x}
             gainA={shownA}
@@ -687,6 +780,12 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
               }}
             />
           </Transition>
+          </FreeSlot>
+          {desktop && webcamOn ? (
+            <FreeSlot active box={layout.webcam} onBox={(box, persist) => place('webcam', box, persist)}>
+              <WebcamTile onStatus={setStatus} />
+            </FreeSlot>
+          ) : null}
         </main>
       </div>
       ) : null}
@@ -700,6 +799,12 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         onMode={chooseMode}
         prepararPane={prepararPane}
         onPrepararPane={setPrepararPane}
+        desktop={desktop}
+        webcamOn={webcamOn}
+        onWebcam={toggleWebcam}
+        chromeOn={chromeOn}
+        onChrome={toggleChrome}
+        onResetLayout={desktop ? resetLayout : undefined}
         onAdmin={() => setAdminOpen(true)}
         onTab={(next) => {
           if (next === 'queue' || next === 'search') {

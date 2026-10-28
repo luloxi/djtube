@@ -54,6 +54,7 @@ async function updatePerson(db: D1Database, person: AccessPerson): Promise<void>
 export async function recordVisit(
   db: D1Database,
   input: { email: string; name: string | null; avatar: string | null; sessionId: string | null },
+  onCreated?: (person: AccessPerson) => Promise<void>,
 ): Promise<AccessPerson | null> {
   const now = new Date().toISOString();
   const touch = { ...input, now };
@@ -63,6 +64,13 @@ export async function recordVisit(
   if (!existing) {
     try {
       await insertPerson(db, next);
+      if (onCreated && !isOwnerEmail(next.email) && next.status === 'pending') {
+        try {
+          await onCreated(next);
+        } catch {
+          /* the visit is stored even if the alert fails */
+        }
+      }
       return next;
     } catch {
       const again = await readPerson(db, input.email);
@@ -77,10 +85,15 @@ export async function recordVisit(
   return next;
 }
 
-export async function recordVisitForUserId(db: D1Database, userId: string, sessionId: string | null): Promise<void> {
+export async function recordVisitForUserId(
+  db: D1Database,
+  userId: string,
+  sessionId: string | null,
+  onCreated?: (person: AccessPerson) => Promise<void>,
+): Promise<void> {
   const user = await db.prepare('SELECT email, name, image FROM "user" WHERE id = ?').bind(userId).first<{ email?: string | null; name?: string | null; image?: string | null }>();
   if (!user?.email) return;
-  await recordVisit(db, { email: user.email, name: user.name ?? null, avatar: user.image ?? null, sessionId });
+  await recordVisit(db, { email: user.email, name: user.name ?? null, avatar: user.image ?? null, sessionId }, onCreated);
 }
 
 export async function listAll(db: D1Database): Promise<AccessPerson[]> {

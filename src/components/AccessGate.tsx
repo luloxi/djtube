@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { holdMessage, type AccessStatus } from '../lib/access';
 import { signInWithGoogle, signOutAndLeave } from '../lib/auth-client';
+import { PushToggle } from './PushToggle';
 
 type Mode = 'loading' | 'error' | 'unconfigured' | 'anonymous' | 'hold' | 'admin-denied';
 
@@ -59,6 +60,7 @@ export function AccessGate({ mode, access, email }: { mode: Mode; access?: Acces
         {mode === 'hold' ? (
           <>
             {email ? <p className="hint">{email}</p> : null}
+            <PushToggle />
             <button type="button" data-testid="auth-sign-out" onClick={() => void signOutAndLeave()}>
               Salir
             </button>

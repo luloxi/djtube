@@ -2,8 +2,9 @@ import { betterAuth } from 'better-auth';
 import { AUTH_BASE_PATH, CANONICAL_ORIGIN, authIsConfigured } from '../src/lib/access';
 import { recordVisitForUserId } from './access-db';
 import type { D1Database } from './d1';
+import { notifyAccessRequest, type NotifyEnv } from './notify';
 
-export type AuthEnv = {
+export type AuthEnv = NotifyEnv & {
   DB?: D1Database;
   BETTER_AUTH_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
@@ -67,7 +68,7 @@ export function getAuth(env: AuthEnv) {
         create: {
           after: async (session) => {
             try {
-              await recordVisitForUserId(db, session.userId, session.id);
+              await recordVisitForUserId(db, session.userId, session.id, (person) => notifyAccessRequest(env, person));
             } catch {
               // /api/me records the visit if this write did not land.
             }

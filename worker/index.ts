@@ -14,10 +14,13 @@ import {
   parseAdminAction,
 } from '../src/lib/access';
 import { parseAnalysisPut } from '../src/lib/analysis';
+import { parsePushSubscription, vapidKeysReady } from '../src/lib/push-sub';
 import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
 import { listAnalysis, readAnalysis, upsertAnalysis } from './analysis-db';
 import { authConfig, getAuth, readSession, type AuthEnv } from './auth';
 import type { D1Database } from './d1';
+import { notifyAccessRequest, notifyApproved } from './notify';
+import { deleteSubscription, saveSubscription } from './push-db';
 
 interface Env extends AuthEnv {
   ASSETS: { fetch(input: Request | URL | string): Promise<Response> };
@@ -45,6 +48,7 @@ export default {
     if (url.pathname === '/api/auth' || url.pathname.startsWith('/api/auth/')) return handleAuth(request, env);
     if (url.pathname === '/api/me') return handleMe(request, env);
     if (url.pathname === '/api/admin/people') return handleAdmin(request, env);
+    if (url.pathname === '/api/push/key' || url.pathname === '/api/push/subscribe') return handlePush(request, env);
     if (url.pathname === '/api/analysis') {
       const denied = await requireApp(request, env);
       if (denied) return denied;
@@ -81,12 +85,16 @@ async function handleMe(request: Request, env: Env): Promise<Response> {
   let access: string | null = null;
   if (env.DB) {
     try {
-      const person = await recordVisit(env.DB, {
-        email: session.email,
-        name: session.name,
-        avatar: session.image,
-        sessionId: session.sessionId,
-      });
+      const person = await recordVisit(
+        env.DB,
+        {
+          email: session.email,
+          name: session.name,
+          avatar: session.image,
+          sessionId: session.sessionId,
+        },
+        (created) => notifyAccessRequest(env, created),
+      );
       access = person?.status ?? null;
     } catch {
       try {
@@ -148,9 +156,9 @@ async function handleAdmin(request: Request, env: Env): Promise<Response> {
   const parsed = parseAdminAction(await request.json().catch(() => null));
   if (!parsed) return json({ ok: false, reason: 'unknown_action' }, adminActionStatus('unknown_action'));
 
-  let exists = false;
+  let before: Awaited<ReturnType<typeof readPerson>> = null;
   try {
-    exists = Boolean(await readPerson(env.DB, parsed.email));
+    before = await readPerson(env.DB, parsed.email);
   } catch {
     return json({ ok: false, reason: 'error' }, 500);
   }
@@ -158,13 +166,51 @@ async function handleAdmin(request: Request, env: Env): Promise<Response> {
     actorEmail: session?.email,
     targetEmail: parsed.email,
     action: parsed.action,
-    targetExists: exists,
+    targetExists: Boolean(before),
   });
   if (!decision.ok) return json({ ok: false, reason: decision.reason }, adminActionStatus(decision.reason));
   try {
     const updated = await setStatus(env.DB, parsed.email, decision.status);
     if (!updated) return json({ ok: false, reason: 'not_found' }, 404);
+    if (decision.status === 'approved' && before?.status !== 'approved') {
+      await notifyApproved(env, updated.email);
+    }
     return json({ ok: true, person: publicPerson(updated) });
+  } catch {
+    return json({ ok: false, reason: 'error' }, 500);
+  }
+}
+
+async function handlePush(request: Request, env: Env): Promise<Response> {
+  const session = authConfig(env) ? await readSession(request, env) : null;
+  if (!session) return json({ ok: false, reason: 'unauthorized' }, 401);
+  const email = normalizeEmail(session.email);
+  if (!email) return json({ ok: false, reason: 'unauthorized' }, 401);
+  const url = new URL(request.url);
+  if (url.pathname === '/api/push/key') {
+    if (request.method !== 'GET') return json({ ok: false, reason: 'method' }, 405);
+    if (!vapidKeysReady(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY)) return json({ ok: false, reason: 'unconfigured' }, 503);
+    return json({ ok: true, publicKey: env.VAPID_PUBLIC_KEY!.trim() });
+  }
+  if (!env.DB) return json({ ok: false, reason: 'unauthorized' }, 401);
+  if (!mutationOriginAllowed(request.headers.get('origin'), url.origin)) return json({ ok: false, reason: 'forbidden' }, 403);
+  if (request.method === 'DELETE') {
+    const body = (await request.json().catch(() => null)) as { endpoint?: unknown } | null;
+    const endpoint = typeof body?.endpoint === 'string' ? body.endpoint.trim() : '';
+    if (!endpoint.startsWith('https://') || endpoint.length > 2000) return json({ ok: false, reason: 'invalid' }, 400);
+    try {
+      await deleteSubscription(env.DB, email, endpoint);
+      return json({ ok: true });
+    } catch {
+      return json({ ok: false, reason: 'error' }, 500);
+    }
+  }
+  if (request.method !== 'PUT') return json({ ok: false, reason: 'method' }, 405);
+  const parsed = parsePushSubscription(await request.json().catch(() => null));
+  if (!parsed) return json({ ok: false, reason: 'invalid' }, 400);
+  try {
+    await saveSubscription(env.DB, email, parsed);
+    return json({ ok: true });
   } catch {
     return json({ ok: false, reason: 'error' }, 500);
   }

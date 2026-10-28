@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isAccessStatus, isOwnerEmail, sortByLastSeen, type AccessAction, type AccessStatus } from '../lib/access';
 import { signOutAndLeave } from '../lib/auth-client';
+import { PushToggle } from './PushToggle';
 
 type Person = {
   email: string;
@@ -107,6 +108,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void } = {}) {
           <h1>Accesos</h1>
         </div>
         <div className="top-actions">
+          <PushToggle onStatus={setNote} />
           {onClose ? (
             <button type="button" className="icon-button" aria-label="Cerrar" title="Cerrar" onClick={onClose}>
               Cerrar

@@ -14,6 +14,9 @@
   },
   // Secrets (wrangler secret put, never in this file): BETTER_AUTH_SECRET,
   // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, YT_API_KEY.
+  // Sends approval mail from djtube@lulox.com.ar once Email Sending is onboarded.
+  // Does not configure Email Routing or MX.
+  "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["djtube@lulox.com.ar"] }],
   "d1_databases": [
     {
       "binding": "DB",

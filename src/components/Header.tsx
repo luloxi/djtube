@@ -1,14 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { downloadBlob, stamp } from '../lib/download';
 import { formatTime } from '../lib/format';
+import { detectRecordMode, recorderMime, recordFileExt, type RecordMode } from '../lib/record';
 import { Icon } from './icons';
 
-function videoMime(): string | undefined {
-  const candidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-  return candidates.find((type) => MediaRecorder.isTypeSupported(type));
+export type SideTab = 'queue' | 'search' | 'highlights';
+
+const CONTACT_URL = 'https://lulox.com.ar/contacto';
+const REPO_URL = 'https://github.com/luloxi/djtube';
+
+function liveRecordMode(): RecordMode {
+  const mediaRecorder = typeof MediaRecorder !== 'undefined';
+  const displayMedia = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+  const userMedia = typeof navigator.mediaDevices?.getUserMedia === 'function';
+  const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  return detectRecordMode({ mediaRecorder, displayMedia, userMedia, coarsePointer });
 }
 
-export type SideTab = 'queue' | 'search' | 'highlights';
+function isTypeSupported(type: string): boolean {
+  try {
+    return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type);
+  } catch {
+    return false;
+  }
+}
 
 export function Header({
   onStatus,
@@ -16,16 +31,21 @@ export function Header({
   onSignOut,
   tab,
   onTab,
+  onAdmin,
+  pending = 0,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
   onSignOut?: () => void;
   tab: SideTab | null;
   onTab: (tab: SideTab) => void;
+  onAdmin?: () => void;
+  pending?: number;
 }) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [menu, setMenu] = useState(false);
+  const [mode] = useState<RecordMode>(() => liveRecordMode());
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number>(0);
@@ -42,25 +62,41 @@ export function Header({
   }
 
   async function start() {
-    if (!navigator.mediaDevices?.getDisplayMedia) {
+    if (mode === 'none') {
       onStatus('Sin captura');
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      const mime = videoMime();
-      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      let kind: 'display' | 'mic' = mode;
+      let stream: MediaStream;
+      if (mode === 'display') {
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        } catch (error) {
+          const canMic = typeof navigator.mediaDevices.getUserMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+          if (!canMic) throw error;
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          kind = 'mic';
+        }
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      }
+      const mime = recorderMime(kind, isTypeSupported);
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       chunks.current = [];
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunks.current.push(event.data);
       };
       recorder.onstop = () => {
-        const blob = new Blob(chunks.current, { type: recorder.mimeType || 'video/webm' });
-        if (blob.size) downloadBlob(blob, `djtube-${stamp()}.webm`);
+        const type = recorder.mimeType || mime || (kind === 'mic' ? 'audio/webm' : 'video/webm');
+        const blob = new Blob(chunks.current, { type });
+        const ext = recordFileExt(type, kind);
+        if (blob.size) downloadBlob(blob, `djtube-${stamp()}.${ext}`);
         cleanup();
-        onStatus(blob.size ? 'Grabación lista' : 'Vacía');
+        onStatus(blob.size ? (kind === 'mic' ? 'Audio listo' : 'Grabación lista') : 'Vacía');
       };
-      stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+      const stopTrack = stream.getVideoTracks()[0] ?? stream.getAudioTracks()[0];
+      stopTrack?.addEventListener('ended', () => {
         if (recorder.state !== 'inactive') recorder.stop();
       });
       recorder.start(1000);
@@ -69,7 +105,7 @@ export function Header({
       setRecording(true);
       const started = Date.now();
       timerRef.current = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 250);
-      onStatus('Grabando');
+      onStatus(kind === 'mic' ? 'Grabando mic' : 'Grabando');
     } catch {
       onStatus('Cancelada');
     }
@@ -97,17 +133,20 @@ export function Header({
     };
   }, [menu]);
 
-  const recLabel = recording ? `Detener ${formatTime(elapsed)}` : 'Grabar';
+  const recOff = mode === 'none';
+  const recLabel = recording ? `Detener ${formatTime(elapsed)}` : recOff ? 'Sin captura' : mode === 'mic' ? 'Grabar mic' : 'Grabar';
 
   return (
     <nav className="dock" aria-label="Navegación">
+      <div className="dock-main">
+        <button type="button" className="icon-button dock-hit" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
+          <Icon name="queue" size={22} />
+        </button>
+        <button type="button" className="icon-button dock-hit search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
+          <Icon name="search" size={22} />
+        </button>
+      </div>
       <div className="dock-tabs">
-        <button type="button" className="icon-button" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
-          <Icon name="queue" />
-        </button>
-        <button type="button" className="icon-button" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
-          <Icon name="search" />
-        </button>
         <button type="button" className="icon-button" aria-pressed={tab === 'highlights'} aria-label="Cortes" title="Cortes" onClick={() => onTab('highlights')}>
           <Icon name="cuts" />
         </button>
@@ -116,14 +155,22 @@ export function Header({
       <a className="icon-button" href="/sync" target="_blank" rel="noopener noreferrer" title="Sincronizador" aria-label="Sincronizador" data-testid="open-sync">
         <Icon name="analyze" />
       </a>
-      <button type="button" className={recording ? 'icon-button rec on' : 'icon-button rec'} aria-label={recLabel} title={recLabel} onClick={recording ? stop : () => void start()}>
+      <button
+        type="button"
+        className={recording ? 'icon-button rec on' : 'icon-button rec'}
+        aria-label={recLabel}
+        title={recLabel}
+        disabled={recOff && !recording}
+        onClick={recording ? stop : () => void start()}
+      >
         <Icon name={recording ? 'stop' : 'record'} />
         {recording ? <span className="rec-time">{formatTime(elapsed)}</span> : null}
       </button>
       {owner ? (
-        <a className="icon-button" href="/admin" title="Admin" aria-label="Admin">
+        <button type="button" className="icon-button admin-hit" title="Admin" aria-label="Admin" onClick={onAdmin}>
           <Icon name="admin" />
-        </a>
+          {pending > 0 ? <span className="badge">{pending > 99 ? '99+' : pending}</span> : null}
+        </button>
       ) : null}
       {onSignOut ? (
         <div className="account" ref={accountRef}>
@@ -132,6 +179,14 @@ export function Header({
           </button>
           {menu ? (
             <div className="account-menu" role="menu">
+              <a role="menuitem" href={CONTACT_URL} target="_blank" rel="noopener noreferrer" aria-label="Contacto" title="Contacto">
+                <Icon name="mail" />
+                <span>Contacto</span>
+              </a>
+              <a role="menuitem" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="Código" title="Código">
+                <Icon name="code" />
+                <span>Código</span>
+              </a>
               <button type="button" role="menuitem" aria-label="Salir" title="Salir" onClick={onSignOut}>
                 <Icon name="sign-out" />
                 <span>Salir</span>

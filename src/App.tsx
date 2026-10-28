@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AnalysisMeta, AudioCoverage, DeckId, DeckModel, Highlight, Track } from './types';
 import { DEFAULT_RATES, emptyDeck } from './types';
+import { AdminPanel } from './components/AdminPanel';
 import { Deck, type DeckHandle } from './components/Deck';
 import { Icon } from './components/icons';
 import { Header, type SideTab } from './components/Header';
 import { Highlights } from './components/Highlights';
+import { InstallBanner } from './components/InstallBanner';
 import { Library } from './components/Library';
 import { SearchBox } from './components/SearchBox';
 import { SyncNote } from './components/SyncNote';
@@ -14,6 +16,7 @@ import { playChime } from './lib/chime';
 import { downloadBlob } from './lib/download';
 import { addHighlight, regionHasAudio } from './lib/highlights';
 import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
+import { clearQueue } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
 import { slicePeaks } from './lib/peaks';
 import { openSyncChannel, parseSyncMessage } from './lib/sync-channel';
@@ -23,7 +26,7 @@ import { readPlaylistIds } from './lib/youtube-api';
 
 export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?: () => void } = {}) {
   const [x, setX] = useState(0.5);
-  const [seconds, setSeconds] = useState(8);
+  const [seconds, setSeconds] = useState(3);
   const [decks, setDecks] = useState<Record<DeckId, DeckModel>>({ A: emptyDeck(), B: emptyDeck() });
   const [library, setLibrary] = useState<Track[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -33,6 +36,10 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const [booted, setBooted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [tab, setTab] = useState<SideTab | null>(null);
+  const [leftPane, setLeftPane] = useState<'queue' | 'search'>('queue');
+  const [titleDeck, setTitleDeck] = useState<DeckId | null>(null);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [pending, setPending] = useState(0);
   const [cutsOpen, setCutsOpen] = useState(true);
 
   function setStatus(text: string) {
@@ -172,6 +179,35 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     const timer = window.setTimeout(() => setToast(null), 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!adminOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAdminOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [adminOpen]);
+
+  useEffect(() => {
+    if (!owner) return;
+    let cancel = false;
+    const tick = () => {
+      fetch('/api/admin/people', { cache: 'no-store' })
+        .then(async (response) => {
+          const data = (await response.json().catch(() => null)) as { pendingCount?: unknown };
+          if (cancel || !response.ok || typeof data?.pendingCount !== 'number') return;
+          setPending(data.pendingCount);
+        })
+        .catch(() => undefined);
+    };
+    tick();
+    const timer = window.setInterval(tick, 20000);
+    return () => {
+      cancel = true;
+      window.clearInterval(timer);
+    };
+  }, [owner, adminOpen]);
 
   function tracksNow() {
     const current = decksRef.current;
@@ -409,15 +445,41 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
 
   const leftOpen = tab === 'queue' || tab === 'search';
 
+  function selectLeft(next: 'queue' | 'search') {
+    setLeftPane(next);
+    setTab(next);
+  }
+
+  function openList(id: DeckId) {
+    setTitleDeck(id);
+    setLeftPane('queue');
+    setTab('queue');
+  }
+
   return (
     <div className={cutsOpen ? 'shell' : 'shell cuts-closed'} data-testid="app">
       <div className="workspace">
         <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
-          <div className={tab === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
-            <Library tracks={library} busy={busy} onSubmit={(url, target) => void ingest(url, target)} onLoad={(track, id) => void loadInto(id, track)} />
+          <div className="side-tabs">
+            <button type="button" className="icon-button" aria-pressed={leftPane === 'queue'} aria-label="Cola" title="Cola" onClick={() => selectLeft('queue')}>
+              <Icon name="queue" />
+            </button>
+            <button type="button" className="icon-button" aria-pressed={leftPane === 'search'} aria-label="Buscar" title="Buscar" onClick={() => selectLeft('search')}>
+              <Icon name="search" />
+            </button>
           </div>
-          <div className={tab === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
-            <SearchBox onLoad={(track, id) => void loadInto(id, track)} onQueue={remember} />
+          <div className={leftPane === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
+            <Library
+              tracks={library}
+              busy={busy}
+              titleDeck={titleDeck}
+              onSubmit={(url, target) => void ingest(url, target)}
+              onLoad={(track, id) => void loadInto(id, track)}
+              onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
+            />
+          </div>
+          <div className={leftPane === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
+            <SearchBox onLoad={(track, id) => void loadInto(id, track)} />
           </div>
         </aside>
         <main className="stage">
@@ -442,8 +504,20 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 onDropTrack={(track) => void loadInto(id, track)}
                 onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
                 onStatus={setStatus}
+                onOpenList={() => openList(id)}
               />
             ))}
+          </div>
+          <div className="queue-strip" aria-label="Cola">
+            <Library
+              tracks={library}
+              busy={busy}
+              compact
+              titleDeck={titleDeck}
+              onSubmit={(url, target) => void ingest(url, target)}
+              onLoad={(track, id) => void loadInto(id, track)}
+              onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
+            />
           </div>
           <Transition
             x={x}
@@ -494,7 +568,28 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
           </div>
         </aside>
       </div>
-      <Header onStatus={setStatus} owner={owner} onSignOut={onSignOut} tab={tab} onTab={(next) => setTab((current) => (current === next ? null : next))} />
+      <Header
+        onStatus={setStatus}
+        owner={owner}
+        onSignOut={onSignOut}
+        tab={tab}
+        pending={pending}
+        onAdmin={() => setAdminOpen(true)}
+        onTab={(next) => {
+          if (next === 'queue' || next === 'search') {
+            setLeftPane(next);
+            if (next === 'queue' && !titleDeck) setTitleDeck(null);
+          }
+          setTab((current) => (current === next ? null : next));
+        }}
+      />
+      {adminOpen ? (
+        <div className="admin-overlay" role="dialog" aria-modal="true" aria-label="Admin">
+          <button type="button" className="admin-backdrop" aria-label="Cerrar" onClick={() => setAdminOpen(false)} />
+          <AdminPanel onClose={() => setAdminOpen(false)} />
+        </div>
+      ) : null}
+      <InstallBanner />
       {toast ? (
         <div className="toast" role="status" data-testid="sync-toast">
           {toast.text}

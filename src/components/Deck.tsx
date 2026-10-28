@@ -1,9 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { DeckId, Track } from '../types';
 import { DEFAULT_RATES } from '../types';
-import { formatTime } from '../lib/format';
 import { bpmFromTaps } from '../lib/bpm';
+import { CUE_SLOTS, clearCue, emptyCues, setCue, type HotCues } from '../lib/cues';
+import { formatTime } from '../lib/format';
+import { loadCues, saveCues } from '../lib/idb';
 import { clamp01, nudgedRate } from '../lib/mixer';
+import { prerollFromState, type PrerollPhase } from '../lib/preload';
 import { loadYouTubeAPI } from '../lib/youtube-api';
 import { Icon } from './icons';
 import { Waveform } from './Waveform';
@@ -40,6 +43,7 @@ type Props = {
   onDropTrack: (track: Track) => void;
   onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
+  onOpenList?: () => void;
 };
 
 const playerVars = () => ({
@@ -72,6 +76,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onDropTrack,
     onSaveHighlight,
     onStatus,
+    onOpenList,
   } = props;
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -93,6 +98,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [label, setLabel] = useState('Corte');
   const [clearToken, setClearToken] = useState(0);
   const [apiError, setApiError] = useState(false);
+  const [cues, setCues] = useState<HotCues>(emptyCues);
+  const prerollRef = useRef<PrerollPhase>('idle');
+  const longPressRef = useRef<number>(0);
 
   gainRef.current = gain;
   rateRef.current = playbackRate;
@@ -110,6 +118,31 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     } catch {
       /* player not ready */
     }
+  };
+
+  const startPreroll = (player: YT.Player, nextId: string) => {
+    prerollRef.current = 'armed';
+    try {
+      player.mute();
+      player.loadVideoById({ videoId: nextId, startSeconds: 0 });
+    } catch {
+      try {
+        player.cueVideoById(nextId);
+      } catch {
+        prerollRef.current = 'idle';
+      }
+    }
+  };
+
+  const finishPreroll = (player: YT.Player) => {
+    try {
+      player.pauseVideo();
+      player.seekTo(0, true);
+    } catch {
+      /* ignore */
+    }
+    applyGain(gainRef.current);
+    setPlaying(false);
   };
 
   useImperativeHandle(ref, () => ({
@@ -159,7 +192,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       if (!player) return;
       try {
         if (player.getVideoData()?.video_id === nextId) return;
-        player.cueVideoById(nextId);
+        startPreroll(player, nextId);
       } catch {
         /* ignore */
       }
@@ -261,6 +294,13 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
               }
             },
             onStateChange: (event) => {
+              const preroll = prerollFromState(prerollRef.current, event.data);
+              prerollRef.current = preroll.phase;
+              if (preroll.finish) {
+                finishPreroll(event.target);
+                return;
+              }
+              if (prerollRef.current === 'armed') return;
               setPlaying(event.data === 1);
               try {
                 const data = event.target.getVideoData();
@@ -298,11 +338,26 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     try {
       const current = playerRef.current?.getVideoData()?.video_id;
       if (current === videoId) return;
-      playerRef.current?.cueVideoById(videoId);
+      const player = playerRef.current;
+      if (player) startPreroll(player, videoId);
     } catch {
       /* ignore */
     }
   }, [videoId, ready]);
+
+  useEffect(() => {
+    if (!videoId) {
+      setCues(emptyCues());
+      return;
+    }
+    let cancel = false;
+    void loadCues(videoId).then((next) => {
+      if (!cancel) setCues(next);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [videoId]);
 
   useEffect(() => {
     if (nudgeSaved.current != null) return;
@@ -407,6 +462,11 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     >
       <header className="deck-head">
         <strong>{id}</strong>
+        {onOpenList ? (
+          <button type="button" className="icon-button" aria-label={`Cola ${id}`} title="Cola" onClick={onOpenList}>
+            <Icon name="queue" />
+          </button>
+        ) : null}
         <p className="deck-title" title={title || undefined}>
           {apiError ? 'Error' : title}
         </p>
@@ -436,14 +496,14 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         <div className="transport">
           <button
             type="button"
-            className="icon-button"
+            className="icon-button play-btn"
             aria-label={playing ? 'Pausa' : 'Play'}
             title={playing ? 'Pausa' : 'Play'}
             aria-pressed={playing}
             disabled={!videoId}
             onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())}
           >
-            <Icon name={playing ? 'pause' : 'play'} />
+            <Icon name={playing ? 'pause' : 'play'} size={28} />
           </button>
           <button
             type="button"
@@ -524,6 +584,65 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             <Icon name="analyze" />
           </button>
         </div>
+        <div className="cues" aria-label={`Cues ${id}`}>
+          {Array.from({ length: CUE_SLOTS }, (_, index) => {
+            const time = cues[index];
+            const set = time != null;
+            const label = set ? `Cue ${index + 1} ${formatTime(time)}` : `Cue ${index + 1}`;
+            return (
+              <button
+                key={index}
+                type="button"
+                className={set ? 'cue-pad is-set' : 'cue-pad'}
+                disabled={!videoId}
+                title={label}
+                aria-label={label}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  if (!videoId || !set) return;
+                  const next = clearCue(cues, index);
+                  setCues(next);
+                  void saveCues(videoId, next);
+                }}
+                onPointerDown={(event) => {
+                  if (!videoId || event.button === 2) return;
+                  window.clearTimeout(longPressRef.current);
+                  longPressRef.current = window.setTimeout(() => {
+                    longPressRef.current = 0;
+                    if (!set) return;
+                    const next = clearCue(cues, index);
+                    setCues(next);
+                    void saveCues(videoId, next);
+                  }, 520);
+                }}
+                onPointerUp={() => window.clearTimeout(longPressRef.current)}
+                onPointerLeave={() => window.clearTimeout(longPressRef.current)}
+                onClick={() => {
+                  if (!videoId || longPressRef.current === 0) return;
+                  window.clearTimeout(longPressRef.current);
+                  if (set) {
+                    try {
+                      playerRef.current?.seekTo(time, true);
+                    } catch {
+                      /* ignore */
+                    }
+                    return;
+                  }
+                  try {
+                    const now = playerRef.current?.getCurrentTime() ?? 0;
+                    const next = setCue(cues, index, now);
+                    setCues(next);
+                    void saveCues(videoId, next);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                {set ? formatTime(time) : index + 1}
+              </button>
+            );
+          })}
+        </div>
       </div>
       {duration > 0 ? (
         <Waveform
@@ -579,45 +698,127 @@ function nearestRate(desired: number, rates: number[]): number {
 function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: number[]; disabled: boolean; onRate: (rate: number) => void }) {
   const shown = rates.includes(rate) ? rate : nearestRate(rate, rates.length ? rates : [rate]);
   const index = Math.max(0, rates.indexOf(shown));
-  const drag = useRef<{ x: number; index: number } | null>(null);
+  const drag = useRef<{ x: number; index: number; moved: boolean } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const label = `Velocidad ${shown}×`;
+  const higher = rates.filter((value) => value > shown + 0.001);
+  const lower = rates.filter((value) => value < shown - 0.001);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || !wrapRef.current?.contains(event.target)) setOpen(false);
+    };
+    window.addEventListener('pointerdown', close);
+    return () => window.removeEventListener('pointerdown', close);
+  }, [open]);
+
+  function pick(next: number) {
+    onRate(next);
+    setOpen(false);
+  }
+
   return (
-    <div
-      className="rate-drag"
-      role="slider"
-      tabIndex={disabled ? -1 : 0}
-      title="Velocidad"
-      aria-label={label}
-      aria-valuemin={rates[0] ?? shown}
-      aria-valuemax={rates[rates.length - 1] ?? shown}
-      aria-valuenow={shown}
-      aria-disabled={disabled}
-      onPointerDown={(event) => {
-        if (disabled || !rates.length) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        drag.current = { x: event.clientX, index };
-      }}
-      onPointerMove={(event) => {
-        const start = drag.current;
-        if (!start || !rates.length || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        const delta = Math.round((event.clientX - start.x) / 22);
-        const next = rates[Math.min(rates.length - 1, Math.max(0, start.index + delta))];
-        if (next != null) onRate(next);
-      }}
-      onPointerUp={() => {
-        drag.current = null;
-      }}
-      onKeyDown={(event) => {
-        if (disabled) return;
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-        event.preventDefault();
-        event.stopPropagation();
-        const delta = event.key === 'ArrowRight' ? 1 : -1;
-        const next = rates[index + delta];
-        if (next != null) onRate(next);
-      }}
-    >
-      {shown}×
+    <div className="rate" ref={wrapRef}>
+      <button
+        type="button"
+        className="icon-button rate-step"
+        aria-label="Más lento"
+        title="Más lento"
+        disabled={disabled || !lower.length}
+        onClick={() => onRate(nudgedRate(shown, -1, rates))}
+      >
+        <Icon name="minus" size={16} />
+      </button>
+      <div
+        className="rate-drag"
+        role="slider"
+        tabIndex={disabled ? -1 : 0}
+        title="Velocidad"
+        aria-label={label}
+        aria-valuemin={rates[0] ?? shown}
+        aria-valuemax={rates[rates.length - 1] ?? shown}
+        aria-valuenow={shown}
+        aria-disabled={disabled}
+        aria-expanded={open}
+        onPointerDown={(event) => {
+          if (disabled || !rates.length) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          drag.current = { x: event.clientX, index, moved: false };
+        }}
+        onPointerMove={(event) => {
+          const start = drag.current;
+          if (!start || !rates.length || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          if (Math.abs(event.clientX - start.x) > 6) start.moved = true;
+          const delta = Math.round((event.clientX - start.x) / 22);
+          const next = rates[Math.min(rates.length - 1, Math.max(0, start.index + delta))];
+          if (next != null && start.moved) onRate(next);
+        }}
+        onPointerUp={() => {
+          const start = drag.current;
+          drag.current = null;
+          if (!start?.moved && !disabled) setOpen((value) => !value);
+        }}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setOpen((value) => !value);
+            return;
+          }
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+          event.preventDefault();
+          event.stopPropagation();
+          const delta = event.key === 'ArrowRight' ? 1 : -1;
+          const next = rates[index + delta];
+          if (next != null) onRate(next);
+        }}
+      >
+        {shown}×
+        {open && !disabled ? (
+          <>
+            {higher.length ? (
+              <ul className="rate-picker rate-higher">
+                {higher
+                  .slice()
+                  .reverse()
+                  .map((value) => (
+                    <li key={value}>
+                      <button type="button" onClick={() => pick(value)}>
+                        {value}×
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            ) : null}
+            {lower.length ? (
+              <ul className="rate-picker rate-lower">
+                {lower
+                  .slice()
+                  .reverse()
+                  .map((value) => (
+                    <li key={value}>
+                      <button type="button" onClick={() => pick(value)}>
+                        {value}×
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        className="icon-button rate-step"
+        aria-label="Más rápido"
+        title="Más rápido"
+        disabled={disabled || !higher.length}
+        onClick={() => onRate(nudgedRate(shown, 1, rates))}
+      >
+        <Icon name="plus" size={16} />
+      </button>
     </div>
   );
 }

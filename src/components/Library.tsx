@@ -5,16 +5,34 @@ import { Icon } from './icons';
 type Props = {
   tracks: Track[];
   busy: boolean;
+  titleDeck?: DeckId | null;
+  compact?: boolean;
   onSubmit: (url: string, target: 'queue' | DeckId) => void;
   onLoad: (track: Track, deck: DeckId) => void;
+  onClear?: () => void;
 };
 
-export function Library({ tracks, busy, onSubmit, onLoad }: Props) {
+export function Library({ tracks, busy, titleDeck = null, compact = false, onSubmit, onLoad, onClear }: Props) {
   const [url, setUrl] = useState('');
 
   return (
     <section className="panel" aria-label="Cola">
-      <h2>Cola</h2>
+      <div className="panel-head">
+        <h2>Cola</h2>
+        {onClear ? (
+          <button
+            type="button"
+            className="icon-button"
+            disabled={busy || tracks.length === 0}
+            aria-label="Vaciar cola"
+            title="Vaciar cola"
+            onClick={onClear}
+          >
+            <Icon name="trash" />
+          </button>
+        ) : null}
+      </div>
+      {compact ? null : (
       <form
         className="stack"
         onSubmit={(event) => {
@@ -66,9 +84,10 @@ export function Library({ tracks, busy, onSubmit, onLoad }: Props) {
           </button>
         </div>
       </form>
+      )}
       <div className="list">
         {tracks.map((track) => (
-          <TrackRow key={track.videoId} track={track} onLoad={onLoad} />
+          <TrackRow key={track.videoId} track={track} titleDeck={titleDeck} onLoad={onLoad} />
         ))}
       </div>
     </section>
@@ -78,11 +97,11 @@ export function Library({ tracks, busy, onSubmit, onLoad }: Props) {
 export function TrackRow({
   track,
   onLoad,
-  onQueue,
+  titleDeck = null,
 }: {
   track: Track;
   onLoad: (track: Track, deck: DeckId) => void;
-  onQueue?: (track: Track) => void;
+  titleDeck?: DeckId | null;
 }) {
   return (
     <div
@@ -93,21 +112,22 @@ export function TrackRow({
         event.dataTransfer.effectAllowed = 'copy';
       }}
     >
+      <button type="button" className="track-add track-add-a" aria-label={`Cargar en deck A: ${track.title}`} title="A" onClick={() => onLoad(track, 'A')}>
+        A
+      </button>
       {track.thumbnail ? <img src={track.thumbnail} alt="" /> : <span className="thumb" />}
-      <p title={track.title}>{track.title}</p>
-      <div className="row">
-        {onQueue ? (
-          <button type="button" className="icon-button" aria-label={`A la cola: ${track.title}`} title="A la cola" onClick={() => onQueue(track)}>
-            <Icon name="plus" />
-          </button>
-        ) : null}
-        <button type="button" className="icon-button letter" aria-label={`Cargar en deck A: ${track.title}`} title="Cargar A" onClick={() => onLoad(track, 'A')}>
-          A
+      {titleDeck ? (
+        <button type="button" className="track-name" title={track.title} onClick={() => onLoad(track, titleDeck)}>
+          {track.title}
         </button>
-        <button type="button" className="icon-button letter" aria-label={`Cargar en deck B: ${track.title}`} title="Cargar B" onClick={() => onLoad(track, 'B')}>
-          B
-        </button>
-      </div>
+      ) : (
+        <p className="track-name" title={track.title}>
+          {track.title}
+        </p>
+      )}
+      <button type="button" className="track-add track-add-b" aria-label={`Cargar en deck B: ${track.title}`} title="B" onClick={() => onLoad(track, 'B')}>
+        B
+      </button>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { TrackRow } from './Library';
 
 type Item = Track & { channel?: string };
 
-export function SearchBox({ onLoad, onQueue }: { onLoad: (track: Track, deck: DeckId) => void; onQueue: (track: Track) => void }) {
+export function SearchBox({ onLoad }: { onLoad: (track: Track, deck: DeckId) => void }) {
   const [mode, setMode] = useState<'loading' | 'ready' | 'nokey' | 'down'>('loading');
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<Item[]>([]);
@@ -59,7 +59,7 @@ export function SearchBox({ onLoad, onQueue }: { onLoad: (track: Track, deck: De
   return (
     <section className="panel" aria-label="Buscar">
       <h2>Buscar</h2>
-      <form className="stack" onSubmit={search}>
+      <form className="search-form" onSubmit={search}>
         <input
           type="search"
           placeholder={placeholder}
@@ -68,15 +68,16 @@ export function SearchBox({ onLoad, onQueue }: { onLoad: (track: Track, deck: De
           aria-label="Buscar en YouTube"
           data-testid="search-hint"
           disabled={mode !== 'ready'}
+          enterKeyHint="search"
         />
-        <button type="submit" className="icon-button" disabled={mode !== 'ready'} aria-label="Buscar" title="Buscar">
+        <button type="submit" className="icon-button search-go" disabled={mode !== 'ready'} aria-label="Buscar" title="Buscar">
           <Icon name="search" />
         </button>
       </form>
       {note ? <p className="hint">{note}</p> : null}
       <div className="list">
         {items.map((item) => (
-          <TrackRow key={item.videoId} track={item} onLoad={onLoad} onQueue={onQueue} />
+          <TrackRow key={item.videoId} track={item} onLoad={onLoad} />
         ))}
       </div>
     </section>

@@ -49,7 +49,7 @@ function parsePeople(data: unknown): Person[] {
   return sortByLastSeen(people);
 }
 
-export function AdminPanel() {
+export function AdminPanel({ onClose }: { onClose?: () => void } = {}) {
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
   const [note, setNote] = useState('Cargando…');
@@ -101,18 +101,26 @@ export function AdminPanel() {
   }
 
   return (
-    <main className="admin" data-testid="admin-panel">
+    <main className={onClose ? 'admin admin-sheet' : 'admin'} data-testid="admin-panel">
       <header className="top">
         <div>
           <h1>Accesos</h1>
         </div>
         <div className="top-actions">
-          <a className="text-link" href="/">
-            Mezclar
-          </a>
-          <button type="button" onClick={() => void signOutAndLeave()}>
-            Salir
-          </button>
+          {onClose ? (
+            <button type="button" className="icon-button" aria-label="Cerrar" title="Cerrar" onClick={onClose}>
+              Cerrar
+            </button>
+          ) : (
+            <a className="text-link" href="/">
+              Mezclar
+            </a>
+          )}
+          {onClose ? null : (
+            <button type="button" onClick={() => void signOutAndLeave()}>
+              Salir
+            </button>
+          )}
         </div>
       </header>
       <form className="stack admin-search" onSubmit={(event) => event.preventDefault()}>

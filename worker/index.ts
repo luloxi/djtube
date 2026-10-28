@@ -8,6 +8,7 @@ import {
   decideAdminAction,
   isOwnerEmail,
   listPeople,
+  pendingCount,
   mutationOriginAllowed,
   normalizeEmail,
   parseAdminAction,
@@ -123,8 +124,9 @@ async function handleAdmin(request: Request, env: Env): Promise<Response> {
   if (request.method === 'GET') {
     const q = (new URL(request.url).searchParams.get('q') ?? '').slice(0, 120);
     try {
-      const people = listPeople(await listAll(env.DB), q).map(publicPerson);
-      return json({ ok: true, people });
+      const all = await listAll(env.DB);
+      const people = listPeople(all, q).map(publicPerson);
+      return json({ ok: true, people, pendingCount: pendingCount(all) });
     } catch {
       return json({ ok: false, reason: 'error' }, 500);
     }

@@ -404,13 +404,30 @@ h2 {
 
 .transport button[aria-pressed="true"] { color: var(--amber); }
 
-.wave, .wave-empty {
+.wave-wrap {
+  position: relative;
   flex: 1 1 96px;
   min-height: 64px;
+  display: flex;
+  flex-direction: column;
+}
+.wave, .wave-empty {
+  flex: 1 1 auto;
+  min-height: 0;
   background: #0c0b09;
   overflow: hidden;
   cursor: pointer;
 }
+.beat-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.beat-line, .beat-down { vector-effect: non-scaling-stroke; }
+.beat-line { stroke: rgba(244, 240, 232, 0.35); stroke-width: 1; }
+.beat-down { stroke: rgba(231, 164, 90, 0.9); stroke-width: 2; }
 
 .mixer {
   flex: 0 0 auto;
@@ -1095,7 +1112,7 @@ a.text-link:hover { text-decoration: underline; }
     flex: 0 0 auto;
   }
 
-  .wave, .wave-empty { min-height: 48px; }
+  .wave-wrap, .wave, .wave-empty { min-height: 48px; }
 
   .video-frame {
     width: 168px;
@@ -1129,7 +1146,7 @@ a.text-link:hover { text-decoration: underline; }
   .deck[data-deck="B"] { box-shadow: inset 3px 0 0 var(--amber); }
   .queue-strip { display: none; }
   .deck-top { display: flex; flex-direction: column; flex: 1 1 auto; }
-  .wave, .wave-empty { flex: 1 1 36px; min-height: 36px; }
+  .wave-wrap, .wave, .wave-empty { flex: 1 1 36px; min-height: 36px; }
   .video-frame {
     width: 100%;
     height: auto;
@@ -1142,7 +1159,7 @@ a.text-link:hover { text-decoration: underline; }
 }
 
 @media (max-height: 520px) {
-  .wave, .wave-empty { min-height: 36px; }
+  .wave-wrap, .wave, .wave-empty { min-height: 36px; }
   .mixer { height: 100px; }
   .fader-track { min-height: 44px; }
   .deck-head { min-height: 30px; }

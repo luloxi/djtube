@@ -8,6 +8,7 @@ import { loadCues, saveCues } from '../lib/idb';
 import { clamp01, nudgedRate } from '../lib/mixer';
 import { prerollFromState, type PrerollPhase } from '../lib/preload';
 import { loadYouTubeAPI } from '../lib/youtube-api';
+import { BeatGrid } from './BeatGrid';
 import { Icon } from './icons';
 import { Waveform } from './Waveform';
 
@@ -45,6 +46,9 @@ type Props = {
   onStatus: (message: string) => void;
   onOpenList?: () => void;
   onAnalyze?: () => void;
+  beatOffset?: number | null;
+  onStartSynced?: () => void;
+  syncReady?: boolean;
 };
 
 const playerVars = () => ({
@@ -79,6 +83,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onStatus,
     onOpenList,
     onAnalyze,
+    beatOffset = null,
+    onStartSynced,
+    syncReady = false,
   } = props;
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -585,6 +592,18 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           >
             <Icon name="analyze" />
           </button>
+          {onStartSynced ? (
+            <button
+              type="button"
+              className="icon-button"
+              title="Entrar en beat"
+              aria-label="Entrar en beat"
+              disabled={!videoId || !syncReady}
+              onClick={onStartSynced}
+            >
+              <Icon name="beat" />
+            </button>
+          ) : null}
         </div>
         <div className="cues" aria-label={`Cues ${id}`}>
           {Array.from({ length: CUE_SLOTS }, (_, index) => {
@@ -646,26 +665,29 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           })}
         </div>
       </div>
-      {duration > 0 ? (
-        <Waveform
-          peaks={peaks}
-          duration={duration}
-          time={time}
-          color={waveColor}
-          progress={waveProgress}
-          clearToken={clearToken}
-          onSeek={(seconds) => {
-            try {
-              playerRef.current?.seekTo(seconds, true);
-            } catch {
-              /* ignore */
-            }
-          }}
-          onSelect={(start, end) => setDraft({ start, end })}
-        />
-      ) : (
-        <div className="wave wave-empty" />
-      )}
+      <div className="wave-wrap">
+        {duration > 0 ? (
+          <Waveform
+            peaks={peaks}
+            duration={duration}
+            time={time}
+            color={waveColor}
+            progress={waveProgress}
+            clearToken={clearToken}
+            onSeek={(seconds) => {
+              try {
+                playerRef.current?.seekTo(seconds, true);
+              } catch {
+                /* ignore */
+              }
+            }}
+            onSelect={(start, end) => setDraft({ start, end })}
+          />
+        ) : (
+          <div className="wave wave-empty" />
+        )}
+        <BeatGrid bpm={bpm} offset={beatOffset ?? null} duration={duration} />
+      </div>
       {draft ? (
         <form className="draft" onSubmit={saveDraft}>
           <span>

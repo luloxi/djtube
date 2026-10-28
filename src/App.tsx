@@ -19,6 +19,7 @@ import { playChime } from './lib/chime';
 import { downloadBlob } from './lib/download';
 import { addHighlight, regionHasAudio } from './lib/highlights';
 import { pushAnalysis, reconcileAnalysis } from './lib/analysis-sync';
+import { easeRateLadder, planSyncedStart } from './lib/beats';
 import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveAnalysis, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clearQueue } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
@@ -50,6 +51,14 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   });
   const [prepararPane, setPrepararPane] = useState<PrepararPane>('sync');
   const [beatOffsets, setBeatOffsets] = useState<Record<string, number | null>>({});
+  const [nudgeSync, setNudgeSync] = useState(() => {
+    try {
+      return window.localStorage.getItem('djtube-sync-nudge') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const easeTimers = useRef<number[]>([]);
 
   function chooseMode(next: AppMode) {
     setMode(next);
@@ -224,6 +233,56 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       window.clearInterval(timer);
     };
   }, [owner, adminOpen]);
+
+  function clearEase() {
+    easeTimers.current.forEach((timer) => window.clearTimeout(timer));
+    easeTimers.current = [];
+  }
+
+  function startSynced(id: DeckId) {
+    const other: DeckId = id === 'A' ? 'B' : 'A';
+    const leader = decksRef.current[other];
+    const follower = decksRef.current[id];
+    const leaderTime = handleFor(other)?.getTime() ?? 0;
+    let leaderPlaying = false;
+    try {
+      leaderPlaying = handleFor(other)?.getPlayer()?.getPlayerState() === 1;
+    } catch {
+      leaderPlaying = false;
+    }
+    const available = rates[id];
+    const plan = planSyncedStart({
+      leaderTime,
+      leaderBpm: leader.bpm,
+      leaderOffset: leader.videoId ? (beatOffsets[leader.videoId] ?? null) : null,
+      leaderRate: leader.playbackRate,
+      leaderPlaying,
+      followerBpm: follower.bpm,
+      available,
+      nudge: nudgeSync,
+    });
+    if (!plan) {
+      setStatus('Sin beat');
+      return;
+    }
+    window.setTimeout(() => {
+      const handle = handleFor(id);
+      handle?.play();
+      if (plan.matchRate != null) {
+        handle?.setRate(plan.matchRate);
+        setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: plan.matchRate as number } }));
+        clearEase();
+        easeRateLadder(plan.matchRate, 1, available).forEach((rate, index) => {
+          const timer = window.setTimeout(() => {
+            handleFor(id)?.setRate(rate);
+            setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: rate } }));
+          }, 900 * (index + 1));
+          easeTimers.current.push(timer);
+        });
+      }
+      setStatus(`Beat ${id}`);
+    }, plan.delayMs);
+  }
 
   function tracksNow() {
     const current = decksRef.current;
@@ -566,6 +625,9 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                   setPrepararPane('sync');
                   chooseMode('preparar');
                 }}
+                beatOffset={decks[id].videoId ? (beatOffsets[decks[id].videoId!] ?? null) : null}
+                syncReady={Boolean(decks[id === 'A' ? 'B' : 'A'].bpm)}
+                onStartSynced={() => startSynced(id)}
               />
             ))}
           </div>
@@ -593,6 +655,26 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             onX={setPosition}
             onGlide={glide}
           >
+            <button
+              type="button"
+              className="icon-button"
+              aria-pressed={nudgeSync}
+              aria-label="Igualar BPM"
+              title="Igualar BPM"
+              onClick={() => {
+                setNudgeSync((on) => {
+                  const next = !on;
+                  try {
+                    window.localStorage.setItem('djtube-sync-nudge', next ? '1' : '0');
+                  } catch {
+                    /* ignore */
+                  }
+                  return next;
+                });
+              }}
+            >
+              <Icon name="beat" />
+            </button>
             <SyncNote
               bpmA={decks.A.bpm}
               bpmB={decks.B.bpm}

@@ -1,14 +1,15 @@
 import type { AnalysisMeta, AudioCoverage, DeckModel, Highlight, SessionState, Track } from '../types';
+import { parseHotCues, type HotCues } from './cues';
 
 const DB_NAME = 'djtube';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      for (const name of ['library', 'highlights', 'analyses', 'audio', 'session']) {
+      for (const name of ['library', 'highlights', 'analyses', 'audio', 'session', 'cues']) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
       }
     };
@@ -130,6 +131,23 @@ export async function loadCoverages(): Promise<Record<string, AudioCoverage>> {
     return map;
   } catch {
     return {};
+  }
+}
+
+export async function loadCues(videoId: string): Promise<HotCues> {
+  try {
+    const value = await withStore<unknown>('cues', 'readonly', (store) => store.get(videoId));
+    return parseHotCues(value);
+  } catch {
+    return parseHotCues(null);
+  }
+}
+
+export async function saveCues(videoId: string, cues: HotCues): Promise<void> {
+  try {
+    await withStore('cues', 'readwrite', (store) => store.put(cues, videoId));
+  } catch {
+    /* keep memory */
   }
 }
 

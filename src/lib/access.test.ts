@@ -14,6 +14,7 @@ import {
   decideAdminAction,
   holdMessage,
   listPeople,
+  pendingCount,
   mutationOriginAllowed,
   parseAdminAction,
   screenFor,
@@ -246,6 +247,17 @@ describe('visit record', () => {
     expect(listPeople(people, 'LUCI').map((item) => item.email)).toEqual([OWNER_EMAIL]);
     expect(listPeople(people, 'ana@').map((item) => item.email)).toEqual(['ana@example.com']);
     expect(listPeople(people, 'nope')).toEqual([]);
+  });
+
+  it('counts pending access requests', () => {
+    const people = [
+      person({ email: 'ana@example.com', status: 'pending', lastSeen: now }),
+      person({ email: 'bobo@example.com', status: 'approved', lastSeen: now }),
+      person({ email: 'cara@example.com', status: 'pending', lastSeen: now }),
+      person({ email: 'dina@example.com', status: 'blocked', lastSeen: now }),
+    ];
+    expect(pendingCount(people)).toBe(2);
+    expect(pendingCount([])).toBe(0);
   });
 });
 

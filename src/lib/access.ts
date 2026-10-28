@@ -256,3 +256,7 @@ export function matchesSearch(person: AccessPerson, query: string): boolean {
 export function listPeople(people: AccessPerson[], query: string): AccessPerson[] {
   return sortByLastSeen(people.filter((person) => matchesSearch(person, query)));
 }
+
+export function pendingCount(people: Array<{ status: string }>): number {
+  return people.reduce((count, person) => (person.status === 'pending' ? count + 1 : count), 0);
+}

@@ -24,8 +24,11 @@ export type IconName =
   | 'chevron-right'
   | 'auto'
   | 'plus'
+  | 'minus'
   | 'check'
-  | 'x';
+  | 'x'
+  | 'mail'
+  | 'code';
 
 const ICONS: Record<IconName, ReactNode> = {
   play: <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />,
@@ -142,11 +145,24 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="M5 12h14" />
     </>
   ),
+  minus: <path d="M5 12h14" />,
   check: <path d="m5 12 5 5L20 7" />,
   x: (
     <>
       <path d="M6 6l12 12" />
       <path d="M18 6 6 18" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 7 9-7" />
+    </>
+  ),
+  code: (
+    <>
+      <path d="m8 8-4 4 4 4" />
+      <path d="m16 8 4 4-4 4" />
     </>
   ),
 };

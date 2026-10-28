@@ -3,7 +3,9 @@ import type { AppMode, PrepararPane } from '../lib/mode';
 import { downloadBlob, stamp } from '../lib/download';
 import { formatTime } from '../lib/format';
 import { detectRecordMode, recorderMime, recordFileExt, type RecordMode } from '../lib/record';
+import { captureFallback, captureKind, mixForRecorder } from '../lib/record-mix';
 import { Icon } from './icons';
+import { VoiceControl, type VoiceMix } from './VoiceControl';
 
 export type SideTab = 'queue' | 'search' | 'highlights';
 
@@ -38,8 +40,6 @@ export function Header({
   onMode,
   prepararPane = 'sync',
   onPrepararPane,
-  voiceOn = false,
-  onVoice,
   desktop = false,
   webcamOn = false,
   onWebcam,
@@ -58,8 +58,6 @@ export function Header({
   onMode: (mode: AppMode) => void;
   prepararPane?: PrepararPane;
   onPrepararPane?: (pane: PrepararPane) => void;
-  voiceOn?: boolean;
-  onVoice?: () => void;
   desktop?: boolean;
   webcamOn?: boolean;
   onWebcam?: () => void;
@@ -73,17 +71,34 @@ export function Header({
   const [recordMode] = useState<RecordMode>(() => liveRecordMode());
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const captureRef = useRef<MediaStream | null>(null);
+  const recordCtx = useRef<AudioContext | null>(null);
+  const releaseMix = useRef<(() => void) | null>(null);
+  const attachVoice = useRef<((next: MediaStream | null) => void) | null>(null);
+  const voiceMix = useRef<VoiceMix>({ stream: null, ctx: null });
   const timerRef = useRef<number>(0);
   const chunks = useRef<Blob[]>([]);
   const accountRef = useRef<HTMLDivElement>(null);
 
   function cleanup() {
     window.clearInterval(timerRef.current);
+    attachVoice.current = null;
+    releaseMix.current?.();
+    releaseMix.current = null;
+    captureRef.current?.getTracks().forEach((track) => track.stop());
+    captureRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    const ctx = recordCtx.current;
+    recordCtx.current = null;
+    if (ctx) void ctx.close();
     recorderRef.current = null;
     setRecording(false);
     setElapsed(0);
+  }
+
+  function voiceIsLive() {
+    return Boolean(voiceMix.current.stream?.getAudioTracks().some((track) => track.readyState === 'live'));
   }
 
   async function start() {
@@ -91,21 +106,32 @@ export function Header({
       onStatus('Sin captura');
       return;
     }
+    const voiceLive = voiceIsLive();
     try {
-      let kind: 'display' | 'mic' = recordMode;
-      let stream: MediaStream;
-      if (recordMode === 'display') {
+      let kind: 'display' | 'mic' = recordMode === 'display' ? 'display' : 'mic';
+      let base: MediaStream | null = null;
+      const plan = captureKind(recordMode, voiceLive);
+      if (plan === 'display') {
         try {
-          stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          base = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         } catch (error) {
           const canMic = typeof navigator.mediaDevices.getUserMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-          if (!canMic) throw error;
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          const fallback = captureFallback(voiceIsLive(), canMic);
+          if (fallback === 'none') throw error;
           kind = 'mic';
+          if (fallback === 'mic') base = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         }
-      } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } else if (plan === 'mic') {
+        base = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
+      const ctx = new AudioContext();
+      await ctx.resume();
+      const mixed = mixForRecorder(base, voiceIsLive() ? voiceMix.current.stream : null, ctx);
+      recordCtx.current = ctx;
+      releaseMix.current = mixed.release;
+      attachVoice.current = mixed.attachVoice;
+      captureRef.current = base;
+      const stream = mixed.stream;
       const mime = recorderMime(kind, isTypeSupported);
       const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       chunks.current = [];
@@ -132,6 +158,7 @@ export function Header({
       timerRef.current = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 250);
       onStatus(kind === 'mic' ? 'Grabando mic' : 'Grabando');
     } catch {
+      cleanup();
       onStatus('Cancelada');
     }
   }
@@ -195,10 +222,15 @@ export function Header({
         </div>
       ) : null}
       <span className="dock-gap" />
-      {mode === 'dj' && onVoice ? (
-        <button type="button" className={voiceOn ? 'icon-button on' : 'icon-button'} aria-pressed={voiceOn} aria-label="Micrófono" title="Micrófono" onClick={onVoice}>
-          <Icon name="mic" />
-        </button>
+      {mode === 'dj' ? (
+        <VoiceControl
+          mix={voiceMix}
+          onStatus={onStatus}
+          onMix={(next) => {
+            voiceMix.current = next;
+            attachVoice.current?.(next.stream);
+          }}
+        />
       ) : null}
       {desktop && mode === 'dj' && onWebcam ? (
         <button type="button" className="icon-button" aria-pressed={webcamOn} aria-label="Cámara" title="Cámara" onClick={onWebcam}>

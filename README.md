@@ -12,18 +12,18 @@ En el móvil los dos decks van apilados, con miniatura 16:9, fader y play a la v
 
 1. Pega un enlace de video o de playlist, o busca (si el worker tiene secreto).
 2. Carga un tema en A y otro en B. También puedes arrastrar.
-3. Play, cue, marcar, nudge y TAP son iconos (el nombre está en el tooltip y en `aria-label`). Cue vuelve al punto marcado y pausa. El BPM es el número grande de cada deck. Play es el botón grande; el video no tiene fullscreen (`fs: 0`).
+3. Play, volver al principio, nudge y TAP son iconos (el nombre está en el tooltip y en `aria-label`). Volver pausa y busca el inicio (0:00). El BPM es el número grande de cada deck. Play es el botón grande; el video no tiene fullscreen (`fs: 0`).
 4. El fader del centro es el control grande: izquierda solo A, centro ambos, derecha solo B. A su lado están los volúmenes, en vertical. El número sobre el fader ya es la mezcla de los dos. Se arrastra, igual que la onda (clic busca, arrastre marca un corte).
 5. **Auto** (junto al fader) desliza A↔B. Por defecto dura 3 s; los segundos se arrastran.
-6. La velocidad tiene − / + a los costados. Arrastrar el número sigue valiendo; un toque sin arrastre abre las velocidades que permite YouTube, las altas arriba y las bajas abajo.
-7. Cuatro pads de cue por deck: toque para marcar, toque para saltar, mantener o clic derecho para borrar. Quedan en IndexedDB por `videoId`.
+6. Cada deck tiene un solo − a la izquierda del número de velocidad y un solo + a la derecha, en cualquier ancho. Los nudges (mantener) van al lado. Arrastrar el número sigue valiendo; un toque sin arrastre abre las velocidades que permite YouTube, las altas arriba y las bajas abajo.
+7. Play es menta, volver lavanda, la velocidad (nudges, −, número, +) durazno y TAP celeste. TAP muestra «Tocá al ritmo para medir el BPM» al pasar el mouse y, en el teléfono, al mantenerlo pulsado.
 8. Al cargar un tema, el deck lo precarga (play mudo, pausa en 0) para que el arranque salga más a tiempo.
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
 
 ## Sincronizador, BPM, cortes
 
-El iframe no entrega el audio. Analizar el tema que está sonando, en vivo, no se puede: el iframe es de otro origen, y capturar la pestaña con `suppressLocalAudioPlayback` le saca el audio al set. El análisis va en Preparar. El icono de onda de un deck cambia a esa pantalla, con el mismo acceso.
+El iframe no entrega el audio. Analizar el tema que está sonando, en vivo, no se puede: el iframe es de otro origen, y capturar la pestaña con `suppressLocalAudioPlayback` le saca el audio al set. El análisis va en Preparar, desde la barra de abajo. El deck no tiene botón de analizar.
 
 1. En esa pestaña, **Empezar** una vez. Hay que usar **Chrome o Edge** y compartir **esta** pestaña **con audio**. La captura pide `suppressLocalAudioPlayback`: el audio entra al análisis y **no sale por los altavoces**. Firefox y Safari no saben silenciar esa captura, y la página no arranca.
 2. Un reproductor pequeño de YouTube pasa la cola. Usa la velocidad más alta que acepte el video (suele ser ×2) y el BPM detectado se divide por esa velocidad. En temas cortos suena el tema entero. En temas largos, una ventana continua sirve para el BPM y unos saltos arman la onda de toda la duración.
@@ -43,7 +43,7 @@ Arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes bus
 
 **Grabar**, en la barra inferior, usa la captura de pantalla cuando el navegador la tiene. En Chrome de Android no hay `getDisplayMedia`: se graba el micrófono con un `mimeType` que `MediaRecorder.isTypeSupported` acepte (`video/mp4`, `audio/webm`, etc.). Si no hay nada que grabar, el botón queda deshabilitado.
 
-La cola se puede vaciar: no saca los temas que están en A o en B.
+La cola se puede vaciar: no saca los temas que están en A o en B. Deslizar una fila a izquierda o derecha (dedo o mouse) también la quita, con una salida corta y un aviso **deshacer**. Si el tema está en A o en B, la fila vuelve sola.
 
 Admin se abre encima de la mezcla, sin desmontar los decks. El dueño ve un contador de pedidos pendientes en el icono (se consulta cada tanto). La campana de admin activa el push en ese teléfono. Quien está en espera puede activarla también. Un pedido nuevo avisa al dueño. Al aprobar, si esa persona se suscribió, también le llega un push, y un mail desde `djtube@lulox.com.ar` cuando Email Sending esté dado de alta. Si el mail falla, la aprobación queda igual. No se tocan los MX ni Email Routing.
 

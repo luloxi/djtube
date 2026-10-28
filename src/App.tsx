@@ -24,7 +24,7 @@ import { addHighlight, regionHasAudio } from './lib/highlights';
 import { pushAnalysis, reconcileAnalysis } from './lib/analysis-sync';
 import { easeRateLadder, planSyncedStart } from './lib/beats';
 import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveAnalysis, saveHighlights, saveLibrary, saveSession } from './lib/idb';
-import { clearQueue } from './lib/library';
+import { clearQueue, removeQueuedTrack, restoreTrack } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
 import { slicePeaks } from './lib/peaks';
 import { openSyncChannel, parseSyncMessage } from './lib/sync-channel';
@@ -42,7 +42,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const [rates, setRates] = useState<Record<DeckId, number[]>>({ A: DEFAULT_RATES, B: DEFAULT_RATES });
   const [busy, setBusy] = useState(false);
   const [booted, setBooted] = useState(false);
-  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+  const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
   const [tab, setTab] = useState<SideTab | null>(null);
   const [leftPane, setLeftPane] = useState<'queue' | 'search'>('queue');
   const [titleDeck, setTitleDeck] = useState<DeckId | null>(null);
@@ -289,7 +289,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 2800);
+    const timer = window.setTimeout(() => setToast(null), toast.undo ? 4200 : 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -570,6 +570,22 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     void enrichTracks([parsed.videoId], rename);
   }
 
+  function removeQueued(track: Track) {
+    const keep = [decksRef.current.A.videoId, decksRef.current.B.videoId];
+    const result = removeQueuedTrack(libraryRef.current, track.videoId, keep);
+    if (!result.removed) return;
+    const removed = result.removed;
+    setLibrary(result.tracks);
+    setToast({
+      id: Date.now(),
+      text: 'deshacer',
+      undo: () => {
+        setLibrary((current) => restoreTrack(current, removed.track, removed.index));
+        setToast(null);
+      },
+    });
+  }
+
   function saveHighlight(id: DeckId, start: number, end: number, label: string) {
     const deck = decksRef.current[id];
     if (!deck.videoId) return;
@@ -662,6 +678,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
               titleDeck={titleDeck}
               onSubmit={(url, target) => void ingest(url, target)}
               onLoad={(track, id) => void loadInto(id, track)}
+              keepIds={[decks.A.videoId, decks.B.videoId]}
+              onRemove={removeQueued}
               onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
             />
           </div>
@@ -684,7 +702,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                 playbackRate={decks[id].playbackRate}
                 bpm={decks[id].bpm}
                 peaks={decks[id].peaks}
-                cueTime={decks[id].cueTime}
                 onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
                 onBpm={(bpm) => {
                   const videoId = decksRef.current[id].videoId;
@@ -705,17 +722,12 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
                     void saveAnalysis(next).then(() => pushAnalysis(next));
                   });
                 }}
-                onCueTime={(cueTime) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], cueTime } }))}
                 onTitle={rename}
                 onRates={(next) => setRates((prev) => ({ ...prev, [id]: next }))}
                 onDropTrack={(track) => void loadInto(id, track)}
                 onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
                 onStatus={setStatus}
                 onOpenList={() => openList(id)}
-                onAnalyze={() => {
-                  setPrepararPane('sync');
-                  chooseMode('preparar');
-                }}
                 beatOffset={decks[id].videoId ? (beatOffsets[decks[id].videoId!] ?? null) : null}
                 syncReady={Boolean(decks[id === 'A' ? 'B' : 'A'].bpm)}
                 onStartSynced={() => startSynced(id)}
@@ -731,6 +743,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
               titleDeck={titleDeck}
               onSubmit={(url, target) => void ingest(url, target)}
               onLoad={(track, id) => void loadInto(id, track)}
+              keepIds={[decks.A.videoId, decks.B.videoId]}
+              onRemove={removeQueued}
               onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
             />
           </div>
@@ -821,7 +835,11 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
         </div>
       ) : null}
       <InstallBanner />
-      {toast ? (
+      {toast?.undo ? (
+        <button type="button" className="toast toast-undo" data-testid="undo-toast" onClick={toast.undo}>
+          deshacer
+        </button>
+      ) : toast ? (
         <div className="toast" role="status" data-testid="sync-toast">
           {toast.text}
         </div>

@@ -1,10 +1,9 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
 import type { DeckId, Track } from '../types';
 import { DEFAULT_RATES } from '../types';
 import { bpmFromTaps } from '../lib/bpm';
-import { CUE_SLOTS, clearCue, emptyCues, setCue, type HotCues } from '../lib/cues';
 import { formatTime } from '../lib/format';
-import { loadCues, saveCues } from '../lib/idb';
+import { noteDeckDrop } from '../lib/library';
 import { clamp01, nudgedRate } from '../lib/mixer';
 import { prerollFromState, type PrerollPhase } from '../lib/preload';
 import { discAngle, jogTarget, jogTransport } from '../lib/jog';
@@ -18,7 +17,6 @@ export type DeckHandle = {
   pause: () => void;
   toggle: () => void;
   cueTo: (seconds: number) => void;
-  markCue: () => void;
   cueVideo: (videoId: string) => void;
   seekWhenReady: (seconds: number, videoId: string) => Promise<boolean>;
   setGain: (gain: number) => void;
@@ -36,17 +34,14 @@ type Props = {
   playbackRate: number;
   bpm: number | null;
   peaks: number[] | null;
-  cueTime: number;
   onRate: (rate: number) => void;
   onBpm: (bpm: number | null) => void;
-  onCueTime: (seconds: number) => void;
   onTitle: (videoId: string, title: string) => void;
   onRates: (rates: number[]) => void;
   onDropTrack: (track: Track) => void;
   onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
   onOpenList?: () => void;
-  onAnalyze?: () => void;
   beatOffset?: number | null;
   onStartSynced?: () => void;
   syncReady?: boolean;
@@ -73,17 +68,14 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     playbackRate,
     bpm,
     peaks,
-    cueTime,
     onRate,
     onBpm,
-    onCueTime,
     onTitle,
     onRates,
     onDropTrack,
     onSaveHighlight,
     onStatus,
     onOpenList,
-    onAnalyze,
     beatOffset = null,
     onStartSynced,
     syncReady = false,
@@ -94,7 +86,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const created = useRef(false);
   const gainRef = useRef(gain);
   const rateRef = useRef(playbackRate);
-  const cueRef = useRef(cueTime);
   const nudgeSaved = useRef<number | null>(null);
   const ratesRef = useRef<number[]>(DEFAULT_RATES);
   const taps = useRef<number[]>([]);
@@ -108,9 +99,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [label, setLabel] = useState('Corte');
   const [clearToken, setClearToken] = useState(0);
   const [apiError, setApiError] = useState(false);
-  const [cues, setCues] = useState<HotCues>(emptyCues);
   const prerollRef = useRef<PrerollPhase>('idle');
-  const longPressRef = useRef<number>(0);
   const spinRef = useRef<HTMLDivElement>(null);
   const joggingRef = useRef(false);
   const jogRef = useRef<{
@@ -130,7 +119,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 
   gainRef.current = gain;
   rateRef.current = playbackRate;
-  cueRef.current = cueTime;
   ratesRef.current = rates;
 
   const applyGain = (value: number) => {
@@ -204,13 +192,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         if (length > 0) player.seekTo(Math.min(seconds, length), true);
       } catch {
         /* ignore */
-      }
-    },
-    markCue() {
-      try {
-        onCueTime(playerRef.current?.getCurrentTime() ?? 0);
-      } catch {
-        onCueTime(0);
       }
     },
     cueVideo(nextId: string) {
@@ -482,20 +463,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   }, [videoId, ready]);
 
   useEffect(() => {
-    if (!videoId) {
-      setCues(emptyCues());
-      return;
-    }
-    let cancel = false;
-    void loadCues(videoId).then((next) => {
-      if (!cancel) setCues(next);
-    });
-    return () => {
-      cancel = true;
-    };
-  }, [videoId]);
-
-  useEffect(() => {
     if (nudgeSaved.current != null) return;
     applyGain(gain);
   }, [gain, ready]);
@@ -561,6 +528,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     if (!raw) return;
     try {
       onDropTrack(JSON.parse(raw) as Track);
+      noteDeckDrop();
     } catch {
       onStatus('No se soltó');
     }
@@ -580,7 +548,15 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const waveColor = id === 'A' ? '#7f9e97' : '#c9844a';
   const waveProgress = id === 'A' ? '#d5ebe4' : '#f0d3b4';
 
-  const cueLabel = `Cue ${formatTime(cueTime)}`;
+  function rewind() {
+    try {
+      const player = playerRef.current;
+      player?.pauseVideo();
+      player?.seekTo(0, true);
+    } catch {
+      /* ignore */
+    }
+  }
 
   return (
     <article
@@ -643,7 +619,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         <div className="transport">
           <button
             type="button"
-            className="icon-button play-btn"
+            className="icon-button play-btn tone-play"
             aria-label={playing ? 'Pausa' : 'Play'}
             title={playing ? 'Pausa' : 'Play'}
             aria-pressed={playing}
@@ -654,82 +630,15 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           </button>
           <button
             type="button"
-            className="icon-button"
-            title={cueLabel}
-            aria-label={cueLabel}
+            className="icon-button tone-back"
+            title="Volver al principio"
+            aria-label="Volver al principio"
             disabled={!videoId}
-            onClick={() => {
-              try {
-                playerRef.current?.pauseVideo();
-                const length = playerRef.current?.getDuration() ?? 0;
-                if (length > 0) playerRef.current?.seekTo(Math.min(cueRef.current, length), true);
-              } catch {
-                /* ignore */
-              }
-            }}
+            onClick={rewind}
           >
             <Icon name="cue" />
           </button>
-          <button
-            type="button"
-            className="icon-button"
-            title="Marcar"
-            aria-label="Marcar"
-            disabled={!videoId}
-            onClick={() => {
-              try {
-                onCueTime(playerRef.current?.getCurrentTime() ?? 0);
-              } catch {
-                onCueTime(0);
-              }
-            }}
-          >
-            <Icon name="mark" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            title="Nudge −"
-            aria-label="Nudge −"
-            disabled={!videoId}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              nudge(-1, true);
-            }}
-            onPointerUp={() => nudge(-1, false)}
-            onPointerCancel={() => nudge(-1, false)}
-          >
-            <Icon name="nudge-left" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            title="Nudge +"
-            aria-label="Nudge +"
-            disabled={!videoId}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              nudge(1, true);
-            }}
-            onPointerUp={() => nudge(1, false)}
-            onPointerCancel={() => nudge(1, false)}
-          >
-            <Icon name="nudge-right" />
-          </button>
-          <button type="button" className="icon-button" title="TAP" aria-label="TAP" disabled={!videoId} onClick={tap}>
-            <Icon name="tap" />
-          </button>
-          <RateDrag rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} />
-          <button
-            type="button"
-            className="icon-button"
-            title="Analizar"
-            aria-label="Analizar"
-            disabled={!videoId}
-            onClick={() => (onAnalyze ? onAnalyze() : window.open('/sync', '_blank', 'noopener'))}
-          >
-            <Icon name="analyze" />
-          </button>
+          <TapButton disabled={!videoId} onTap={tap} />
           <button
             type="button"
             className="icon-button"
@@ -764,64 +673,38 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             </button>
           ) : null}
         </div>
-        <div className="cues" aria-label={`Cues ${id}`}>
-          {Array.from({ length: CUE_SLOTS }, (_, index) => {
-            const time = cues[index];
-            const set = time != null;
-            const label = set ? `Cue ${index + 1} ${formatTime(time)}` : `Cue ${index + 1}`;
-            return (
-              <button
-                key={index}
-                type="button"
-                className={set ? 'cue-pad is-set' : 'cue-pad'}
-                disabled={!videoId}
-                title={label}
-                aria-label={label}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  if (!videoId || !set) return;
-                  const next = clearCue(cues, index);
-                  setCues(next);
-                  void saveCues(videoId, next);
-                }}
-                onPointerDown={(event) => {
-                  if (!videoId || event.button === 2) return;
-                  window.clearTimeout(longPressRef.current);
-                  longPressRef.current = window.setTimeout(() => {
-                    longPressRef.current = 0;
-                    if (!set) return;
-                    const next = clearCue(cues, index);
-                    setCues(next);
-                    void saveCues(videoId, next);
-                  }, 520);
-                }}
-                onPointerUp={() => window.clearTimeout(longPressRef.current)}
-                onPointerLeave={() => window.clearTimeout(longPressRef.current)}
-                onClick={() => {
-                  if (!videoId || longPressRef.current === 0) return;
-                  window.clearTimeout(longPressRef.current);
-                  if (set) {
-                    try {
-                      playerRef.current?.seekTo(time, true);
-                    } catch {
-                      /* ignore */
-                    }
-                    return;
-                  }
-                  try {
-                    const now = playerRef.current?.getCurrentTime() ?? 0;
-                    const next = setCue(cues, index, now);
-                    setCues(next);
-                    void saveCues(videoId, next);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              >
-                {set ? formatTime(time) : index + 1}
-              </button>
-            );
-          })}
+        <div className="speed">
+          <button
+            type="button"
+            className="icon-button tone-speed"
+            title="Nudge −"
+            aria-label="Nudge −"
+            disabled={!videoId}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              nudge(-1, true);
+            }}
+            onPointerUp={() => nudge(-1, false)}
+            onPointerCancel={() => nudge(-1, false)}
+          >
+            <Icon name="nudge-left" />
+          </button>
+          <RateDrag rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} />
+          <button
+            type="button"
+            className="icon-button tone-speed"
+            title="Nudge +"
+            aria-label="Nudge +"
+            disabled={!videoId}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              nudge(1, true);
+            }}
+            onPointerUp={() => nudge(1, false)}
+            onPointerCancel={() => nudge(1, false)}
+          >
+            <Icon name="nudge-right" />
+          </button>
         </div>
       </div>
       <div className="wave-wrap">
@@ -874,6 +757,71 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   );
 });
 
+const TAP_TIP = 'Tocá al ritmo para medir el BPM';
+
+function TapButton({ disabled, onTap }: { disabled: boolean; onTap: () => void }) {
+  const tipId = useId();
+  const [open, setOpen] = useState(false);
+  const timer = useRef(0);
+  const held = useRef(false);
+  const touch = useRef(false);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  return (
+    <span className="tip tap-tip">
+      <button
+        type="button"
+        className="icon-button tone-tap"
+        aria-label="TAP"
+        aria-describedby={tipId}
+        disabled={disabled}
+        onPointerEnter={(event) => {
+          if (event.pointerType === 'touch') return;
+          setOpen(true);
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === 'touch') return;
+          setOpen(false);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onPointerDown={(event) => {
+          touch.current = event.pointerType === 'touch';
+          held.current = false;
+          window.clearTimeout(timer.current);
+          if (event.pointerType !== 'touch') return;
+          timer.current = window.setTimeout(() => {
+            held.current = true;
+            setOpen(true);
+          }, 480);
+        }}
+        onPointerUp={() => {
+          window.clearTimeout(timer.current);
+          if (touch.current && held.current) window.setTimeout(() => setOpen(false), 1200);
+        }}
+        onPointerCancel={() => {
+          window.clearTimeout(timer.current);
+          held.current = false;
+          setOpen(false);
+        }}
+        onClick={() => {
+          if (held.current) {
+            held.current = false;
+            return;
+          }
+          onTap();
+        }}
+      >
+        <Icon name="tap" />
+      </button>
+      <span id={tipId} role="tooltip" className={open ? 'tip-pop is-on' : 'tip-pop'}>
+        {TAP_TIP}
+      </span>
+    </span>
+  );
+}
+
 function nearestRate(desired: number, rates: number[]): number {
   return rates.reduce((best, rate) => (Math.abs(rate - desired) < Math.abs(best - desired) ? rate : best));
 }
@@ -906,7 +854,7 @@ function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: numb
     <div className="rate" ref={wrapRef}>
       <button
         type="button"
-        className="icon-button rate-step"
+        className="icon-button rate-step tone-speed"
         aria-label="Más lento"
         title="Más lento"
         disabled={disabled || !lower.length}
@@ -915,7 +863,7 @@ function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: numb
         <Icon name="minus" size={16} />
       </button>
       <div
-        className="rate-drag"
+        className="rate-drag tone-speed"
         role="slider"
         tabIndex={disabled ? -1 : 0}
         title="Velocidad"
@@ -994,7 +942,7 @@ function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: numb
       </div>
       <button
         type="button"
-        className="icon-button rate-step"
+        className="icon-button rate-step tone-speed"
         aria-label="Más rápido"
         title="Más rápido"
         disabled={disabled || !higher.length}

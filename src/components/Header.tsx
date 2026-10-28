@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AppMode, PrepararPane } from '../lib/mode';
-import { downloadBlob, stamp } from '../lib/download';
-import { formatTime } from '../lib/format';
-import { detectRecordMode, recorderMime, recordFileExt, type RecordMode } from '../lib/record';
-import { captureFallback, captureKind, mixForRecorder } from '../lib/record-mix';
+import type { AppMode } from '../lib/mode';
 import { Icon } from './icons';
+import { PushToggle } from './PushToggle';
 import { VoiceControl, type VoiceMix } from './VoiceControl';
 
 export type SideTab = 'queue' | 'search' | 'highlights';
@@ -12,158 +9,54 @@ export type SideTab = 'queue' | 'search' | 'highlights';
 const CONTACT_URL = 'https://lulox.com.ar/contacto';
 const REPO_URL = 'https://github.com/luloxi/djtube';
 
-function liveRecordMode(): RecordMode {
-  const mediaRecorder = typeof MediaRecorder !== 'undefined';
-  const displayMedia = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
-  const userMedia = typeof navigator.mediaDevices?.getUserMedia === 'function';
-  const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-  return detectRecordMode({ mediaRecorder, displayMedia, userMedia, coarsePointer });
-}
-
-function isTypeSupported(type: string): boolean {
-  try {
-    return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type);
-  } catch {
-    return false;
-  }
-}
-
 export function Header({
   onStatus,
   owner = false,
+  email = null,
+  access = null,
+  configured = true,
+  requesting = false,
+  onSignIn,
   onSignOut,
+  onRequestUnlimited,
   tab,
   onTab,
   onAdmin,
   pending = 0,
   mode,
   onMode,
-  prepararPane = 'sync',
-  onPrepararPane,
   desktop = false,
   webcamOn = false,
   onWebcam,
   onResetLayout,
+  onOpenKey,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
+  email?: string | null;
+  access?: string | null;
+  configured?: boolean;
+  requesting?: boolean;
+  onSignIn?: () => void;
   onSignOut?: () => void;
+  onRequestUnlimited?: () => void;
   tab: SideTab | null;
   onTab: (tab: SideTab) => void;
   onAdmin?: () => void;
   pending?: number;
   mode: AppMode;
   onMode: (mode: AppMode) => void;
-  prepararPane?: PrepararPane;
-  onPrepararPane?: (pane: PrepararPane) => void;
   desktop?: boolean;
   webcamOn?: boolean;
   onWebcam?: () => void;
   onResetLayout?: () => void;
+  onOpenKey: () => void;
 }) {
-  const [recording, setRecording] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [menu, setMenu] = useState(false);
-  const [recordMode] = useState<RecordMode>(() => liveRecordMode());
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const captureRef = useRef<MediaStream | null>(null);
-  const recordCtx = useRef<AudioContext | null>(null);
-  const releaseMix = useRef<(() => void) | null>(null);
-  const attachVoice = useRef<((next: MediaStream | null) => void) | null>(null);
   const voiceMix = useRef<VoiceMix>({ stream: null, ctx: null });
-  const timerRef = useRef<number>(0);
-  const chunks = useRef<Blob[]>([]);
   const accountRef = useRef<HTMLDivElement>(null);
-
-  function cleanup() {
-    window.clearInterval(timerRef.current);
-    attachVoice.current = null;
-    releaseMix.current?.();
-    releaseMix.current = null;
-    captureRef.current?.getTracks().forEach((track) => track.stop());
-    captureRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    const ctx = recordCtx.current;
-    recordCtx.current = null;
-    if (ctx) void ctx.close();
-    recorderRef.current = null;
-    setRecording(false);
-    setElapsed(0);
-  }
-
-  function voiceIsLive() {
-    return Boolean(voiceMix.current.stream?.getAudioTracks().some((track) => track.readyState === 'live'));
-  }
-
-  async function start() {
-    if (recordMode === 'none') {
-      onStatus('Sin captura');
-      return;
-    }
-    const voiceLive = voiceIsLive();
-    try {
-      let kind: 'display' | 'mic' = recordMode === 'display' ? 'display' : 'mic';
-      let base: MediaStream | null = null;
-      const plan = captureKind(recordMode, voiceLive);
-      if (plan === 'display') {
-        try {
-          base = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        } catch (error) {
-          const canMic = typeof navigator.mediaDevices.getUserMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-          const fallback = captureFallback(voiceIsLive(), canMic);
-          if (fallback === 'none') throw error;
-          kind = 'mic';
-          if (fallback === 'mic') base = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        }
-      } else if (plan === 'mic') {
-        base = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      }
-      const ctx = new AudioContext();
-      await ctx.resume();
-      const mixed = mixForRecorder(base, voiceIsLive() ? voiceMix.current.stream : null, ctx);
-      recordCtx.current = ctx;
-      releaseMix.current = mixed.release;
-      attachVoice.current = mixed.attachVoice;
-      captureRef.current = base;
-      const stream = mixed.stream;
-      const mime = recorderMime(kind, isTypeSupported);
-      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      chunks.current = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.current.push(event.data);
-      };
-      recorder.onstop = () => {
-        const type = recorder.mimeType || mime || (kind === 'mic' ? 'audio/webm' : 'video/webm');
-        const blob = new Blob(chunks.current, { type });
-        const ext = recordFileExt(type, kind);
-        if (blob.size) downloadBlob(blob, `djtube-${stamp()}.${ext}`);
-        cleanup();
-        onStatus(blob.size ? (kind === 'mic' ? 'Audio listo' : 'Grabación lista') : 'Vacía');
-      };
-      const stopTrack = stream.getVideoTracks()[0] ?? stream.getAudioTracks()[0];
-      stopTrack?.addEventListener('ended', () => {
-        if (recorder.state !== 'inactive') recorder.stop();
-      });
-      recorder.start(1000);
-      recorderRef.current = recorder;
-      streamRef.current = stream;
-      setRecording(true);
-      const started = Date.now();
-      timerRef.current = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 250);
-      onStatus(kind === 'mic' ? 'Grabando mic' : 'Grabando');
-    } catch {
-      cleanup();
-      onStatus('Cancelada');
-    }
-  }
-
-  function stop() {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== 'inactive') recorder.stop();
-    else cleanup();
-  }
+  const unlimited = access === 'approved' || owner;
+  const askLabel = access === 'pending' ? 'Pedido enviado' : access === 'blocked' ? 'Bloqueado' : 'Uso sin límite';
 
   useEffect(() => {
     if (!menu) return;
@@ -181,9 +74,6 @@ export function Header({
     };
   }, [menu]);
 
-  const recOff = recordMode === 'none';
-  const recLabel = recording ? `Detener ${formatTime(elapsed)}` : recOff ? 'Sin captura' : recordMode === 'mic' ? 'Grabar mic' : 'Grabar';
-
   return (
     <nav className="dock" aria-label="Navegación">
       <div className="dock-modes">
@@ -193,16 +83,6 @@ export function Header({
         <button type="button" className="icon-button" aria-pressed={mode === 'dj'} aria-label="DJ" title="DJ" onClick={() => onMode('dj')}>
           <Icon name="decks" />
         </button>
-        {mode === 'preparar' ? (
-          <>
-            <button type="button" className="icon-button" aria-pressed={prepararPane === 'sync'} aria-label="Sincronizador" title="Sincronizador" onClick={() => onPrepararPane?.('sync')}>
-              <Icon name="analyze" />
-            </button>
-            <button type="button" className="icon-button" aria-pressed={prepararPane === 'cuts'} aria-label="Cortes" title="Cortes" onClick={() => onPrepararPane?.('cuts')}>
-              <Icon name="cuts" />
-            </button>
-          </>
-        ) : null}
       </div>
       {mode === 'dj' ? (
         <div className="dock-main">
@@ -215,67 +95,70 @@ export function Header({
         </div>
       ) : null}
       <span className="dock-gap" />
-      {mode === 'dj' ? (
-        <VoiceControl
-          mix={voiceMix}
-          onStatus={onStatus}
-          onMix={(next) => {
-            voiceMix.current = next;
-            attachVoice.current?.(next.stream);
-          }}
-        />
-      ) : null}
+      {mode === 'dj' ? <VoiceControl mix={voiceMix} onStatus={onStatus} /> : null}
       {desktop && mode === 'dj' && onWebcam ? (
         <button type="button" className="icon-button" aria-pressed={webcamOn} aria-label="Cámara" title="Cámara" onClick={onWebcam}>
           <Icon name="camera" />
         </button>
       ) : null}
-      <button
-        type="button"
-        className={recording ? 'icon-button rec on' : 'icon-button rec'}
-        aria-label={recLabel}
-        title={recLabel}
-        disabled={recOff && !recording}
-        onClick={recording ? stop : () => void start()}
-      >
-        <Icon name={recording ? 'stop' : 'record'} />
-        {recording ? <span className="rec-time">{formatTime(elapsed)}</span> : null}
+      <button type="button" className="icon-button tone-key" data-testid="yt-key-open" aria-label="Usá tu propia clave" title="Usá tu propia clave" onClick={onOpenKey}>
+        <Icon name="key" />
       </button>
+      {email ? <PushToggle onStatus={onStatus} /> : null}
       {owner ? (
-        <button type="button" className="icon-button admin-hit" title="Admin" aria-label="Admin" onClick={onAdmin}>
+        <button type="button" className="icon-button admin-hit" title="Uso sin límite" aria-label="Uso sin límite" onClick={onAdmin}>
           <Icon name="admin" />
           {pending > 0 ? <span className="badge">{pending > 99 ? '99+' : pending}</span> : null}
         </button>
       ) : null}
-      {onSignOut ? (
-        <div className="account" ref={accountRef}>
-          <button type="button" className="icon-button" aria-label="Cuenta" title="Cuenta" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((open) => !open)}>
-            <Icon name="user" />
-          </button>
-          {menu ? (
-            <div className="account-menu" role="menu">
-              <a role="menuitem" href={CONTACT_URL} target="_blank" rel="noopener noreferrer" aria-label="Contacto" title="Contacto">
-                <Icon name="mail" />
-                <span>Contacto</span>
-              </a>
-              <a role="menuitem" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="Código" title="Código">
-                <Icon name="code" />
-                <span>Código</span>
-              </a>
-              {onResetLayout ? (
-                <button type="button" role="menuitem" aria-label="Restablecer" title="Restablecer" onClick={onResetLayout}>
-                  <Icon name="reset" />
-                  <span>Restablecer</span>
-                </button>
-              ) : null}
+      <div className="account" ref={accountRef}>
+        <button type="button" className="icon-button" aria-label="Cuenta" title="Cuenta" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((open) => !open)}>
+          <Icon name="user" />
+        </button>
+        {menu ? (
+          <div className="account-menu" role="menu">
+            {!email && onSignIn ? (
+              <button type="button" role="menuitem" aria-label="Entrar" title="Entrar" disabled={!configured} onClick={onSignIn}>
+                <Icon name="user" />
+                <span>{configured ? 'Entrar' : 'Login en configuración'}</span>
+              </button>
+            ) : null}
+            {email && !unlimited && onRequestUnlimited ? (
+              <button
+                type="button"
+                role="menuitem"
+                aria-label={askLabel}
+                title={askLabel}
+                disabled={requesting || access === 'pending' || access === 'blocked'}
+                onClick={onRequestUnlimited}
+              >
+                <Icon name="key" />
+                <span>{askLabel}</span>
+              </button>
+            ) : null}
+            <a role="menuitem" href={CONTACT_URL} target="_blank" rel="noopener noreferrer" aria-label="Contacto" title="Contacto">
+              <Icon name="mail" />
+              <span>Contacto</span>
+            </a>
+            <a role="menuitem" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="Código" title="Código">
+              <Icon name="code" />
+              <span>Código</span>
+            </a>
+            {onResetLayout ? (
+              <button type="button" role="menuitem" aria-label="Restablecer" title="Restablecer" onClick={onResetLayout}>
+                <Icon name="reset" />
+                <span>Restablecer</span>
+              </button>
+            ) : null}
+            {onSignOut ? (
               <button type="button" role="menuitem" aria-label="Salir" title="Salir" onClick={onSignOut}>
                 <Icon name="sign-out" />
                 <span>Salir</span>
               </button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </nav>
   );
 }

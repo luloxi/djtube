@@ -35,7 +35,8 @@ export type IconName =
   | 'beat'
   | 'reset'
   | 'reverb'
-  | 'bell';
+  | 'bell'
+  | 'key';
 
 const ICONS: Record<IconName, ReactNode> = {
   play: <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />,
@@ -220,6 +221,14 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11.5 12.5 9-9" />
+      <path d="M16 4h4v4" />
+      <path d="M15 8h3" />
     </>
   ),
 };

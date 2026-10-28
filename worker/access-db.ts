@@ -55,10 +55,12 @@ export async function recordVisit(
   db: D1Database,
   input: { email: string; name: string | null; avatar: string | null; sessionId: string | null },
   onCreated?: (person: AccessPerson) => Promise<void>,
+  options?: { create?: boolean },
 ): Promise<AccessPerson | null> {
   const now = new Date().toISOString();
   const touch = { ...input, now };
   const existing = await readPerson(db, input.email);
+  if (!existing && options?.create === false) return null;
   const next = touchVisit(existing, touch);
   if (!next) return null;
   if (!existing) {
@@ -85,15 +87,10 @@ export async function recordVisit(
   return next;
 }
 
-export async function recordVisitForUserId(
-  db: D1Database,
-  userId: string,
-  sessionId: string | null,
-  onCreated?: (person: AccessPerson) => Promise<void>,
-): Promise<void> {
+export async function recordVisitForUserId(db: D1Database, userId: string, sessionId: string | null): Promise<void> {
   const user = await db.prepare('SELECT email, name, image FROM "user" WHERE id = ?').bind(userId).first<{ email?: string | null; name?: string | null; image?: string | null }>();
   if (!user?.email) return;
-  await recordVisit(db, { email: user.email, name: user.name ?? null, avatar: user.image ?? null, sessionId }, onCreated);
+  await recordVisit(db, { email: user.email, name: user.name ?? null, avatar: user.image ?? null, sessionId }, undefined, { create: false });
 }
 
 export async function listAll(db: D1Database): Promise<AccessPerson[]> {

@@ -43,9 +43,9 @@ describe('approval mail', () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
       from: DEFAULT_APPROVAL_FROM,
       to: [TO],
-      subject: 'Acceso',
-      text: `Ya podés entrar.\n${CANONICAL_ORIGIN}\n${CUSTOM_ORIGIN}\n`,
-      html: `<p>Ya podés entrar.</p><p><a href="${CANONICAL_ORIGIN}">DJTube</a></p><p><a href="${CUSTOM_ORIGIN}">${CUSTOM_ORIGIN}</a></p>`,
+      subject: 'Uso sin límite',
+      text: `Ya tenés búsquedas sin límite.\n${CANONICAL_ORIGIN}\n${CUSTOM_ORIGIN}\n`,
+      html: `<p>Ya tenés búsquedas sin límite.</p><p><a href="${CANONICAL_ORIGIN}">DJTube</a></p><p><a href="${CUSTOM_ORIGIN}">${CUSTOM_ORIGIN}</a></p>`,
     });
     expect(DEFAULT_APPROVAL_FROM).toBe('DJTube <no-responder@lulox.com.ar>');
     expect(error).not.toHaveBeenCalled();

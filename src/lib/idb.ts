@@ -1,17 +1,19 @@
-import type { AnalysisMeta, AudioCoverage, DeckModel, Highlight, SessionState, Track } from '../types';
+import type { DeckModel, Highlight, SessionState, Track } from '../types';
 
 const DB_NAME = 'djtube';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = () => {
       const db = request.result;
-      for (const name of ['library', 'highlights', 'analyses', 'audio', 'session']) {
+      for (const name of ['library', 'highlights', 'session']) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
       }
-      if (event.oldVersion < 3 && db.objectStoreNames.contains('cues')) db.deleteObjectStore('cues');
+      for (const name of ['cues', 'audio', 'analyses']) {
+        if (db.objectStoreNames.contains(name)) db.deleteObjectStore(name);
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -80,60 +82,6 @@ export async function saveSession(session: SessionState): Promise<void> {
   }
 }
 
-export async function loadAnalysis(videoId: string): Promise<AnalysisMeta | null> {
-  try {
-    const value = await withStore<AnalysisMeta | undefined>('analyses', 'readonly', (store) => store.get(videoId));
-    return value ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveAnalysis(meta: AnalysisMeta): Promise<void> {
-  await withStore('analyses', 'readwrite', (store) => store.put(meta, meta.videoId));
-}
-
-export async function saveAudio(videoId: string, blob: Blob): Promise<void> {
-  await withStore('audio', 'readwrite', (store) => store.put(blob, videoId));
-}
-
-export async function loadAudio(videoId: string): Promise<Blob | null> {
-  try {
-    const value = await withStore<Blob | undefined>('audio', 'readonly', (store) => store.get(videoId));
-    return value ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function loadAnalyzedBpm(): Promise<Map<string, number | null>> {
-  try {
-    const rows = await withStore<AnalysisMeta[]>('analyses', 'readonly', (store) => store.getAll());
-    const map = new Map<string, number | null>();
-    for (const row of rows ?? []) {
-      if (!row?.videoId || !Array.isArray(row.peaks) || !row.peaks.length) continue;
-      map.set(row.videoId, typeof row.bpm === 'number' && Number.isFinite(row.bpm) ? row.bpm : null);
-    }
-    return map;
-  } catch {
-    return new Map();
-  }
-}
-
-export async function loadCoverages(): Promise<Record<string, AudioCoverage>> {
-  try {
-    const rows = await withStore<AnalysisMeta[]>('analyses', 'readonly', (store) => store.getAll());
-    const map: Record<string, AudioCoverage> = {};
-    for (const row of rows ?? []) {
-      if (!row?.videoId) continue;
-      map[row.videoId] = { recordStart: row.recordStart, recordEnd: row.recordEnd, hasAudio: row.hasAudio };
-    }
-    return map;
-  } catch {
-    return {};
-  }
-}
-
 export function deckSnapshot(deck: DeckModel): DeckModel {
   return {
     videoId: deck.videoId,
@@ -143,6 +91,7 @@ export function deckSnapshot(deck: DeckModel): DeckModel {
     cueTime: deck.cueTime,
     playbackRate: deck.playbackRate,
     bpm: deck.bpm,
+    beatOffset: deck.beatOffset ?? null,
     peaks: null,
   };
 }

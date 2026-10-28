@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Highlight } from '../types';
-import { addHighlight, exportHighlights, importHighlights, regionHasAudio, removeHighlight, searchHighlights } from './highlights';
+import { addHighlight, exportHighlights, importHighlights, removeHighlight, searchHighlights } from './highlights';
 import { slicePeaks } from './peaks';
 
 const sample: Highlight = {
@@ -36,15 +36,10 @@ describe('highlight store', () => {
     expect(() => importHighlights([], '{"highlights":[{"id":"x"}]}')).toThrow(/invalid/);
   });
 
-  it('slices peaks for the region and knows when a clip can be downloaded', () => {
+  it('slices peaks for the region', () => {
     const peaks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     const slice = slicePeaks(peaks, 10, 2, 5);
     expect(slice[0]).toBe(2);
     expect(slice[slice.length - 1]).toBe(5);
-    const coverage = { recordStart: 0, recordEnd: 30, hasAudio: true };
-    expect(regionHasAudio(coverage, 2, 5)).toBe(true);
-    expect(regionHasAudio(coverage, 28, 40)).toBe(false);
-    expect(regionHasAudio({ ...coverage, hasAudio: false }, 2, 5)).toBe(false);
-    expect(regionHasAudio(null, 2, 5)).toBe(false);
   });
 });

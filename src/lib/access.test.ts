@@ -6,14 +6,12 @@ import {
   adminActionStatus,
   adminApiDecision,
   adminHttpStatus,
-  appApiDecision,
-  appApiStatus,
   authIsConfigured,
-  canUseApp,
   clientMayAdmin,
   clientMayEnter,
   decideAdminAction,
-  holdMessage,
+  decideUnlimitedRequest,
+  hasUnlimitedSearch,
   listPeople,
   pendingCount,
   mutationOriginAllowed,
@@ -49,56 +47,62 @@ describe('auth configuration fails closed', () => {
     expect(authIsConfigured({ database: true })).toBe(false);
   });
 
-  it('does not let the owner through when login is not configured', () => {
-    expect(clientMayEnter({ configured: false, email: OWNER_EMAIL, access: 'approved' })).toBe(false);
+  it('does not let a missing login config open /admin, but the mixer stays open', () => {
+    expect(clientMayEnter()).toBe(true);
     expect(clientMayAdmin({ configured: false, email: OWNER_EMAIL })).toBe(false);
-    expect(appApiDecision({ configured: false, email: OWNER_EMAIL, status: 'approved' })).toBe('unconfigured');
-    expect(appApiStatus('unconfigured')).toBe(401);
     expect(adminApiDecision({ configured: false, email: OWNER_EMAIL })).toBe('unconfigured');
     expect(adminHttpStatus('unconfigured')).toBe(503);
     expect(screenFor({ loaded: true, failed: false, configured: false, email: OWNER_EMAIL, access: 'approved', path: '/admin' })).toBe('unconfigured');
-    expect(screenFor({ loaded: true, failed: false, configured: false, email: null, access: null, path: '/' })).toBe('unconfigured');
+    expect(screenFor({ loaded: true, failed: false, configured: false, email: null, access: null, path: '/' })).toBe('app');
   });
 });
 
-describe('who can use the app', () => {
-  it('always allows the owner email, whatever the stored status is', () => {
+describe('unlimited search', () => {
+  it('always includes the owner, and other people only when approved', () => {
     for (const status of ['pending', 'approved', 'revoked', 'blocked', null, 'nope'] as const) {
-      expect(canUseApp('  LucianoOlivaBianco@gmail.com ', status)).toBe(true);
+      expect(hasUnlimitedSearch('  LucianoOlivaBianco@gmail.com ', status)).toBe(true);
     }
-  });
-
-  it('allows other people only when the status is approved', () => {
-    expect(canUseApp('ana@example.com', 'approved')).toBe(true);
+    expect(hasUnlimitedSearch('ana@example.com', 'approved')).toBe(true);
     for (const status of ['pending', 'revoked', 'blocked', null, '', 'approved '] as const) {
-      expect(canUseApp('ana@example.com', status)).toBe(false);
+      expect(hasUnlimitedSearch('ana@example.com', status)).toBe(false);
     }
-    expect(canUseApp('', 'approved')).toBe(false);
-    expect(canUseApp(null, 'approved')).toBe(false);
+    expect(hasUnlimitedSearch('', 'approved')).toBe(false);
+    expect(hasUnlimitedSearch(null, 'approved')).toBe(false);
   });
 
-  it('rejects search and oEmbed for everyone who is not approved', () => {
-    expect(appApiDecision({ configured: true, email: null, status: null })).toBe('unauthorized');
-    expect(appApiDecision({ configured: true, email: 'ana@example.com', status: 'pending' })).toBe('unauthorized');
-    expect(appApiDecision({ configured: true, email: 'ana@example.com', status: 'revoked' })).toBe('unauthorized');
-    expect(appApiDecision({ configured: true, email: 'ana@example.com', status: 'blocked' })).toBe('unauthorized');
-    expect(appApiDecision({ configured: true, email: 'ana@example.com', status: null })).toBe('unauthorized');
-    expect(appApiStatus('unauthorized')).toBe(401);
-    expect(appApiDecision({ configured: true, email: 'ana@example.com', status: 'approved' })).toBe('ok');
-    expect(appApiDecision({ configured: true, email: OWNER_EMAIL, status: 'blocked' })).toBe('ok');
+  it('opens a request only from a button, and does not ask twice', () => {
+    expect(decideUnlimitedRequest({ email: null, status: null, exists: false })).toEqual({ ok: false, reason: 'unauthorized' });
+    expect(decideUnlimitedRequest({ email: OWNER_EMAIL, status: null, exists: false })).toEqual({
+      ok: true,
+      status: 'approved',
+      notify: false,
+      unlimited: true,
+      create: false,
+    });
+    expect(decideUnlimitedRequest({ email: 'ana@example.com', status: null, exists: false })).toEqual({
+      ok: true,
+      status: 'pending',
+      notify: true,
+      unlimited: false,
+      create: true,
+    });
+    expect(decideUnlimitedRequest({ email: 'ana@example.com', status: 'revoked', exists: true })).toMatchObject({ notify: true, status: 'pending', create: false });
+    expect(decideUnlimitedRequest({ email: 'ana@example.com', status: 'pending', exists: true })).toMatchObject({ notify: false, unlimited: false });
+    expect(decideUnlimitedRequest({ email: 'ana@example.com', status: 'approved', exists: true })).toMatchObject({ notify: false, unlimited: true });
+    expect(decideUnlimitedRequest({ email: 'ana@example.com', status: 'blocked', exists: true })).toEqual({ ok: false, reason: 'blocked' });
   });
 });
 
 describe('screens', () => {
   const base = { loaded: true, failed: false, configured: true, path: '/' };
 
-  it('shows a landing, a hold, or the mixer', () => {
-    expect(screenFor({ ...base, loaded: false, email: null, access: null })).toBe('loading');
-    expect(screenFor({ ...base, loaded: false, failed: true, email: null, access: null })).toBe('error');
-    expect(screenFor({ ...base, email: null, access: null })).toBe('anonymous');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending' })).toBe('hold');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'revoked' })).toBe('hold');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'blocked' })).toBe('hold');
+  it('opens the mixer for everyone, signed in or not', () => {
+    expect(screenFor({ ...base, loaded: false, email: null, access: null })).toBe('app');
+    expect(screenFor({ ...base, loaded: false, failed: true, email: null, access: null })).toBe('app');
+    expect(screenFor({ ...base, email: null, access: null })).toBe('app');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending' })).toBe('app');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'revoked' })).toBe('app');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'blocked' })).toBe('app');
     expect(screenFor({ ...base, email: 'ana@example.com', access: 'approved' })).toBe('app');
     expect(screenFor({ ...base, email: OWNER_EMAIL, access: 'blocked' })).toBe('app');
   });
@@ -108,23 +112,14 @@ describe('screens', () => {
     expect(screenFor({ ...base, email: OWNER_EMAIL, access: 'blocked', path: '/admin/' })).toBe('admin');
     expect(screenFor({ ...base, email: 'ana@example.com', access: 'approved', path: '/admin' })).toBe('admin-denied');
     expect(screenFor({ ...base, email: null, access: null, path: '/admin' })).toBe('anonymous');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending', path: '/admin' })).toBe('hold');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending', path: '/admin' })).toBe('admin-denied');
+    expect(screenFor({ ...base, loaded: false, email: null, access: null, path: '/admin' })).toBe('loading');
+    expect(screenFor({ ...base, loaded: false, failed: true, email: null, access: null, path: '/admin' })).toBe('error');
   });
 
-  it('keeps /sync behind the same gate as the mixer', () => {
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'approved', path: '/sync' })).toBe('app');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'approved', path: '/sync/' })).toBe('app');
-    expect(screenFor({ ...base, email: OWNER_EMAIL, access: 'blocked', path: '/sync' })).toBe('app');
-    expect(screenFor({ ...base, email: null, access: null, path: '/sync' })).toBe('anonymous');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending', path: '/sync' })).toBe('hold');
-    expect(screenFor({ ...base, email: 'ana@example.com', access: 'blocked', path: '/sync' })).toBe('hold');
-  });
-
-  it('uses the calm copy for people who are waiting or blocked', () => {
-    expect(holdMessage('pending')).toBe('Pedí acceso, Luciano te habilita');
-    expect(holdMessage('revoked')).toBe('Pedí acceso, Luciano te habilita');
-    expect(holdMessage(null)).toBe('Pedí acceso, Luciano te habilita');
-    expect(holdMessage('blocked')).toBe('Acceso bloqueado');
+  it('does not keep a separate sync gate', () => {
+    expect(screenFor({ ...base, email: null, access: null, path: '/sync' })).toBe('app');
+    expect(screenFor({ ...base, email: 'ana@example.com', access: 'pending', path: '/sync/' })).toBe('app');
   });
 });
 
@@ -210,7 +205,7 @@ describe('visit record', () => {
     });
     const owner = touchVisit(null, { email: OWNER_EMAIL, name: 'Luciano', avatar: null, sessionId: 'own', now });
     expect(owner?.status).toBe('approved');
-    expect(canUseApp(owner?.email, 'blocked')).toBe(true);
+    expect(hasUnlimitedSearch(owner?.email, 'blocked')).toBe(true);
   });
 
   it('bumps the visit only when the session changes and never rewrites status', () => {

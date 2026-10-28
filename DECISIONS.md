@@ -1,6 +1,6 @@
 # DJTube — build decision
 
-Spanish summary: no reutilicé un mixer entero. Los repos públicos o no son MIT, o son PHP/JS suelto y viejo, o no encajan con Vite + React + Worker. La app se construye desde cero y sí usa `wavesurfer.js` (regiones) y `web-audio-beat-detector`.
+Spanish summary: no reutilicé un mixer entero. Los repos públicos o no son MIT, o son PHP/JS suelto y viejo, o no encajan con Vite + React + Worker. La app se construye desde cero y sí usa `wavesurfer.js` (regiones). No captura ni guarda audio de YouTube.
 
 ## Repos looked at
 
@@ -20,13 +20,22 @@ None of them are a clean, small, permissively licensed two-deck app we could dro
 
 ## Libraries we do use
 
-- **wavesurfer.js 7** (BSD-3-Clause) and its **Regions** plugin. The YouTube IFrame does not expose audio, so WaveSurfer does not play the track. It renders precomputed peaks (`peaks` + `duration`, no media URL, `backend: 'WebAudio'` so the playhead can move) and drag-selects a highlight.
-- **web-audio-beat-detector** (MIT). `analyze(AudioBuffer)` runs on a slice of the sync tab's capture. The player runs at its highest rate, so the detector's tempo window is scaled by that rate and the result is divided before it is folded into a DJ range. Doing the fold first would halve a 2× reading a second time.
-- **realtime-bpm-analyzer** (Apache-2.0) was the other candidate. It is built for a live AudioWorklet stream and would need the buffer to play back in real time. The sync tab already holds a capture for the waveform, so the offline detector is the better fit. A small interval/energy estimator in `src/lib/bpm.ts` is the fallback if the library throws (quiet audio, no beats) and is what the unit tests lock down.
+- **wavesurfer.js 7** (BSD-3-Clause) and its **Regions** plugin. The YouTube IFrame does not expose audio, so WaveSurfer does not play the track. It can draw a beat grid and drag-select a highlight. It does not load a media URL and it does not receive captured YouTube audio.
 
-## Why analysis is not a deck button
+## YouTube audio is not captured (28 Oct 2026)
 
-Capturing the mixer tab means soloing one deck and playing it through the speakers, which breaks the set. `/sync` is a second view of the same signed-in app. It captures itself, with `suppressLocalAudioPlayback`, and the two tabs share the queue over `BroadcastChannel`. IndexedDB stays the copy that is still there after a reload. The chime is played in the mixer tab because the sync tab's own audio is the one being silenced.
+The [YouTube API Services](https://developers.google.com/youtube/terms/api-services-terms-of-service) policies do not allow separating, storing, or downloading YouTube audio or video, and they do not allow a client that lets people download it. DJTube dropped every path that did that:
+
+- `/sync` tab capture (`getDisplayMedia`, `sync-capture`, `sync-run`, `sync-queue`, `analysis-sync`)
+- recording (`record.ts`, `MediaRecorder`) and clip download (`.webm`, `clip.ts`)
+- audio blobs in IndexedDB (the `audio` store, and the `analyses` store that held peaks from that capture)
+- the Worker writer for that analysis (`worker/analysis-db.ts`)
+
+The D1 table `track_analysis` is left in place. Nothing reads it or writes it anymore. Playback is only the official embedded YouTube IFrame player. Tap tempo, a manual BPM, and the beat grid stay, because they never read captured audio. A `.txt` list of links is still fine. The person's own microphone (Web Audio) is not YouTube audio and stays.
+
+## Search is public, and the shared key is metered (28 Oct 2026)
+
+Anyone can open the mixer. `approved` means unlimited search on the shared key, not a gate. Anonymous callers get 20 Data API calls per UTC day (the IP is hashed; the raw address is not stored). Signed-in callers get 50. The owner and approved accounts are unlimited. Cache hits do not count: search is kept 24 h by normalized query, playlist pages 6 h. A key the user pastes stays in `localStorage` (`djtube-yt-key`). The browser calls YouTube directly. That key is never sent to the Worker and never logged.
 
 ## Mix curve
 
@@ -38,4 +47,4 @@ Not constant-power. The brief is explicit: `A = min(1, 2*(1-x))`, `B = min(1, 2*
 
 ## Search secret
 
-`/api/search` reads the Worker secret `YT_API_KEY`. It is not set in this repo and must not be committed. Missing key returns HTTP 200 `{ ok: false, reason: "missing_key" }` so the browser does not log a failed request. Paste-a-URL still works.
+`/api/search` and `/api/playlist` read the Worker secret `YT_API_KEY`. It is not in this repo, not in `wrangler.jsonc`, and not in the client bundle. Missing key returns HTTP 200 `{ ok: false, reason: "missing_key" }` so the browser does not log a failed request. Paste-a-URL still works. A call that actually uses the key is counted, including a failed upstream response. Cached successes are not.

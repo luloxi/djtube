@@ -66,10 +66,14 @@ export function authIsConfigured(config: AuthConfig): boolean {
   return Boolean(config.database) && filled(config.secret, 32) && filled(config.googleClientId) && filled(config.googleClientSecret);
 }
 
-/** Owner always. Anyone else only with status exactly "approved". */
-export function canUseApp(email: string | null | undefined, status: AccessStatus | string | null | undefined): boolean {
-  if (!normalizeEmail(email)) return false;
+/**
+ * The mixer is public. `approved` is no longer the door: it means this
+ * signed-in account may search with the shared key and no daily cap.
+ * The owner is always in that set.
+ */
+export function hasUnlimitedSearch(email: string | null | undefined, status: AccessStatus | string | null | undefined): boolean {
   if (isOwnerEmail(email)) return true;
+  if (!normalizeEmail(email)) return false;
   return status === 'approved';
 }
 
@@ -77,9 +81,9 @@ export function initialStatusFor(email: string): AccessStatus {
   return isOwnerEmail(email) ? 'approved' : 'pending';
 }
 
-export function clientMayEnter(input: { configured: boolean; email: string | null | undefined; access: AccessStatus | string | null | undefined }): boolean {
-  if (!input.configured) return false;
-  return canUseApp(input.email, input.access);
+/** Anyone can open the mixer, including when Google login is not configured. */
+export function clientMayEnter(): boolean {
+  return true;
 }
 
 export function clientMayAdmin(input: { configured: boolean; email: string | null | undefined }): boolean {
@@ -87,7 +91,7 @@ export function clientMayAdmin(input: { configured: boolean; email: string | nul
   return isOwnerEmail(input.email);
 }
 
-export type Screen = 'loading' | 'error' | 'unconfigured' | 'anonymous' | 'hold' | 'admin-denied' | 'admin' | 'app';
+export type Screen = 'loading' | 'error' | 'unconfigured' | 'anonymous' | 'admin-denied' | 'admin' | 'app';
 
 export function normalizePath(path: string): string {
   const bare = path.trim().split('?')[0]?.split('#')[0] ?? '';
@@ -95,7 +99,10 @@ export function normalizePath(path: string): string {
   return collapsed || '/';
 }
 
-/** What the browser may render. Never the mixer unless the access rule passes. */
+/**
+ * The mixer is public. `/admin` still belongs to the owner.
+ * `loaded` / `failed` only matter there: a slow `/api/me` must not hide the decks.
+ */
 export function screenFor(input: {
   loaded: boolean;
   failed: boolean;
@@ -104,36 +111,31 @@ export function screenFor(input: {
   access: AccessStatus | string | null | undefined;
   path: string;
 }): Screen {
+  if (normalizePath(input.path) !== '/admin') return 'app';
   if (!input.loaded) return input.failed ? 'error' : 'loading';
   if (!input.configured) return 'unconfigured';
   const email = normalizeEmail(input.email);
   if (!email) return 'anonymous';
-  if (!canUseApp(email, input.access)) return 'hold';
-  if (normalizePath(input.path) === '/admin') {
-    return isOwnerEmail(email) ? 'admin' : 'admin-denied';
-  }
-  return 'app';
+  return isOwnerEmail(email) ? 'admin' : 'admin-denied';
 }
 
-export function holdMessage(status: AccessStatus | string | null | undefined): string {
-  return status === 'blocked' ? 'Acceso bloqueado' : 'Pedí acceso, Luciano te habilita';
-}
+export type UnlimitedRequest =
+  | { ok: true; status: AccessStatus; notify: boolean; unlimited: boolean; create: boolean }
+  | { ok: false; reason: 'unauthorized' | 'blocked' };
 
-export type ApiDecision = 'ok' | 'unconfigured' | 'unauthorized';
-
-export function appApiDecision(input: {
-  configured: boolean;
+/** A signed-in person asks to be on the unlimited-search list. Login alone does not. */
+export function decideUnlimitedRequest(input: {
   email: string | null | undefined;
   status: AccessStatus | string | null | undefined;
-}): ApiDecision {
-  if (!input.configured) return 'unconfigured';
-  if (!canUseApp(input.email, input.status)) return 'unauthorized';
-  return 'ok';
-}
-
-/** Data routes (search, oEmbed) never answer 200 unless the rule says ok. */
-export function appApiStatus(decision: ApiDecision): 200 | 401 {
-  return decision === 'ok' ? 200 : 401;
+  exists: boolean;
+}): UnlimitedRequest {
+  const email = normalizeEmail(input.email);
+  if (!email) return { ok: false, reason: 'unauthorized' };
+  if (isOwnerEmail(email)) return { ok: true, status: 'approved', notify: false, unlimited: true, create: false };
+  if (input.status === 'blocked') return { ok: false, reason: 'blocked' };
+  if (input.status === 'approved') return { ok: true, status: 'approved', notify: false, unlimited: true, create: false };
+  if (input.exists && input.status === 'pending') return { ok: true, status: 'pending', notify: false, unlimited: false, create: false };
+  return { ok: true, status: 'pending', notify: true, unlimited: false, create: !input.exists };
 }
 
 export type AdminDecision = 'ok' | 'unconfigured' | 'unauthorized' | 'forbidden';

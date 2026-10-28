@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { holdMessage, type AccessStatus } from '../lib/access';
 import { signInWithGoogle, signOutAndLeave } from '../lib/auth-client';
-import { PushToggle } from './PushToggle';
 
-type Mode = 'loading' | 'error' | 'unconfigured' | 'anonymous' | 'hold' | 'admin-denied';
+type Mode = 'loading' | 'error' | 'unconfigured' | 'anonymous' | 'admin-denied';
 
 function oauthError(): boolean {
   return new URLSearchParams(window.location.search).get('error') === 'oauth';
 }
 
-export function AccessGate({ mode, access, email }: { mode: Mode; access?: AccessStatus | string | null; email?: string | null }) {
+export function AccessGate({ mode, email }: { mode: Mode; email?: string | null }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(oauthError);
 
@@ -29,9 +27,7 @@ export function AccessGate({ mode, access, email }: { mode: Mode; access?: Acces
       ? 'Login en configuración'
       : mode === 'error'
         ? 'No pude comprobar el acceso.'
-        : mode === 'hold'
-          ? holdMessage(access)
-          : mode === 'admin-denied'
+        : mode === 'admin-denied'
             ? 'Esta página es solo de Luciano.'
             : null;
 
@@ -57,19 +53,16 @@ export function AccessGate({ mode, access, email }: { mode: Mode; access?: Acces
             Reintentar
           </button>
         ) : null}
-        {mode === 'hold' ? (
+        {mode === 'admin-denied' ? (
           <>
             {email ? <p className="hint">{email}</p> : null}
-            <PushToggle />
             <button type="button" data-testid="auth-sign-out" onClick={() => void signOutAndLeave()}>
               Salir
             </button>
+            <a className="text-link" href="/">
+              Volver a mezclar
+            </a>
           </>
-        ) : null}
-        {mode === 'admin-denied' ? (
-          <a className="text-link" href="/">
-            Volver a mezclar
-          </a>
         ) : null}
       </div>
     </main>

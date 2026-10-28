@@ -1,22 +1,18 @@
 import { useRef, useState } from 'react';
-import type { AudioCoverage, DeckId, Highlight } from '../types';
+import type { DeckId, Highlight } from '../types';
 import { formatTime } from '../lib/format';
-import { exportHighlights, importHighlights, regionHasAudio, searchHighlights } from '../lib/highlights';
+import { exportHighlights, importHighlights, searchHighlights } from '../lib/highlights';
 import { downloadBlob } from '../lib/download';
 import { Icon } from './icons';
 
 type Props = {
   highlights: Highlight[];
-  coverage: Record<string, AudioCoverage>;
   onChange: (next: Highlight[]) => void;
   onPlay: (highlight: Highlight, deck: DeckId, play: boolean) => void;
-  onDownload: (highlight: Highlight) => Promise<void>;
   onStatus: (message: string) => void;
 };
 
-const NO_AUDIO = 'Sin audio de este tramo';
-
-export function Highlights({ highlights, coverage, onChange, onPlay, onDownload, onStatus }: Props) {
+export function Highlights({ highlights, onChange, onPlay, onStatus }: Props) {
   const [query, setQuery] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const visible = searchHighlights(highlights, query);
@@ -66,9 +62,7 @@ export function Highlights({ highlights, coverage, onChange, onPlay, onDownload,
         />
       </div>
       <div className="list">
-        {visible.map((highlight) => {
-          const canAudio = regionHasAudio(coverage[highlight.videoId], highlight.start, highlight.end);
-          return (
+        {visible.map((highlight) => (
             <article key={highlight.id} className="highlight">
               <p>
                 <strong>{highlight.label}</strong>
@@ -81,18 +75,12 @@ export function Highlights({ highlights, coverage, onChange, onPlay, onDownload,
                 <DeckHit icon="cue" deck="A" label="Cue A" onClick={() => onPlay(highlight, 'A', false)} />
                 <DeckHit icon="play" deck="B" label="Play B" onClick={() => onPlay(highlight, 'B', true)} />
                 <DeckHit icon="cue" deck="B" label="Cue B" onClick={() => onPlay(highlight, 'B', false)} />
-                <span className="tip" title={canAudio ? 'Audio' : NO_AUDIO}>
-                  <button type="button" className="icon-button" aria-label="Audio" disabled={!canAudio} onClick={() => void onDownload(highlight)}>
-                    <Icon name="download" />
-                  </button>
-                </span>
                 <button type="button" className="icon-button" title="Borrar" aria-label="Borrar" onClick={() => onChange(highlights.filter((item) => item.id !== highlight.id))}>
                   <Icon name="trash" />
                 </button>
               </div>
             </article>
-          );
-        })}
+          ))}
       </div>
     </section>
   );

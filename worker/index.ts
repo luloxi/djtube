@@ -2,10 +2,9 @@ import {
   adminActionStatus,
   adminApiDecision,
   adminHttpStatus,
-  appApiDecision,
-  appApiStatus,
-  canUseApp,
   decideAdminAction,
+  decideUnlimitedRequest,
+  hasUnlimitedSearch,
   isOwnerEmail,
   listPeople,
   pendingCount,
@@ -13,14 +12,16 @@ import {
   normalizeEmail,
   parseAdminAction,
 } from '../src/lib/access';
-import { parseAnalysisPut } from '../src/lib/analysis';
+import { normalizeSearchQuery, SEARCH_CACHE_SECONDS, youtubeFailure } from '../src/lib/quota';
 import { parsePushSubscription, vapidKeysReady } from '../src/lib/push-sub';
+import { parseSearchItems } from '../src/lib/youtube-search';
 import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
-import { listAnalysis, readAnalysis, upsertAnalysis } from './analysis-db';
 import { authConfig, getAuth, readSession, type AuthEnv } from './auth';
+import { chargeBudget, keyBudget } from './budget';
 import type { D1Database } from './d1';
 import { notifyAccessRequest, notifyApproved } from './notify';
 import { deleteSubscription, saveSubscription } from './push-db';
+import { readCachedJson, writeCachedJson } from './yt-cache';
 import { handlePlaylist, handleYouTubePlaylist } from './youtube';
 
 interface Env extends AuthEnv {
@@ -28,13 +29,6 @@ interface Env extends AuthEnv {
   YT_API_KEY?: string;
   DB?: D1Database;
 }
-
-type SearchItem = {
-  videoId: string;
-  title: string;
-  thumbnail: string | null;
-  channel: string;
-};
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
@@ -48,35 +42,13 @@ export default {
     if (url.pathname === '/api/health') return json({ ok: true });
     if (url.pathname === '/api/auth' || url.pathname.startsWith('/api/auth/')) return handleAuth(request, env);
     if (url.pathname === '/api/me') return handleMe(request, env);
+    if (url.pathname === '/api/access/request') return handleUnlimitedRequest(request, env);
     if (url.pathname === '/api/admin/people') return handleAdmin(request, env);
     if (url.pathname === '/api/push/key' || url.pathname === '/api/push/subscribe') return handlePush(request, env);
-    if (url.pathname === '/api/analysis') {
-      const denied = await requireApp(request, env);
-      if (denied) return denied;
-      const session = await readSession(request, env);
-      if (!session) return json({ ok: false, reason: 'unauthorized' }, 401);
-      return handleAnalysis(request, env, normalizeEmail(session.email));
-    }
-    if (url.pathname === '/api/search') {
-      const denied = await requireApp(request, env);
-      if (denied) return denied;
-      return search(url, env);
-    }
-    if (url.pathname === '/api/playlist') {
-      const denied = await requireApp(request, env);
-      if (denied) return denied;
-      return handlePlaylist(request, env);
-    }
-    if (url.pathname === '/api/youtube/playlist') {
-      const denied = await requireApp(request, env);
-      if (denied) return denied;
-      return handleYouTubePlaylist(request, env);
-    }
-    if (url.pathname === '/api/oembed') {
-      const denied = await requireApp(request, env);
-      if (denied) return denied;
-      return oembed(url);
-    }
+    if (url.pathname === '/api/search') return search(request, url, env);
+    if (url.pathname === '/api/playlist') return handlePlaylist(request, env);
+    if (url.pathname === '/api/youtube/playlist') return handleYouTubePlaylist(request, env);
+    if (url.pathname === '/api/oembed') return oembed(url);
     if (url.pathname.startsWith('/api/')) return json({ ok: false, reason: 'not_found' }, 404);
     return env.ASSETS.fetch(request);
   },
@@ -90,9 +62,9 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
 
 async function handleMe(request: Request, env: Env): Promise<Response> {
   const configured = authConfig(env);
-  if (!configured) return json({ configured: false, user: null, access: null, allowed: false, owner: false });
+  if (!configured) return json({ configured: false, user: null, access: null, allowed: true, unlimited: false, owner: false });
   const session = await readSession(request, env);
-  if (!session) return json({ configured: true, user: null, access: null, allowed: false, owner: false });
+  if (!session) return json({ configured: true, user: null, access: null, allowed: true, unlimited: false, owner: false });
   let access: string | null = null;
   if (env.DB) {
     try {
@@ -104,7 +76,8 @@ async function handleMe(request: Request, env: Env): Promise<Response> {
           avatar: session.image,
           sessionId: session.sessionId,
         },
-        (created) => notifyAccessRequest(env, created),
+        undefined,
+        { create: false },
       );
       access = person?.status ?? null;
     } catch {
@@ -120,26 +93,51 @@ async function handleMe(request: Request, env: Env): Promise<Response> {
     configured: true,
     user: { email, name: session.name, image: session.image },
     access,
-    allowed: canUseApp(email, access),
+    allowed: true,
+    unlimited: hasUnlimitedSearch(email, access),
     owner: isOwnerEmail(email),
   });
 }
 
-async function requireApp(request: Request, env: Env): Promise<Response | null> {
-  const configured = authConfig(env);
-  if (!configured) return json({ ok: false, reason: 'unauthorized' }, appApiStatus('unconfigured'));
-  const session = await readSession(request, env);
-  let status: string | null = null;
-  if (session && env.DB) {
-    try {
-      status = (await readPerson(env.DB, session.email))?.status ?? null;
-    } catch {
-      status = null;
-    }
+async function handleUnlimitedRequest(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') return json({ ok: false, reason: 'method' }, 405);
+  if (!mutationOriginAllowed(request.headers.get('origin'), new URL(request.url).origin)) {
+    return json({ ok: false, reason: 'forbidden' }, 403);
   }
-  const decision = appApiDecision({ configured: true, email: session?.email, status });
-  if (decision !== 'ok') return json({ ok: false, reason: 'unauthorized' }, appApiStatus(decision));
-  return null;
+  const session = await readSession(request, env);
+  if (!session || !env.DB) return json({ ok: false, reason: 'unauthorized' }, 401);
+  let existing: Awaited<ReturnType<typeof readPerson>> = null;
+  try {
+    existing = await readPerson(env.DB, session.email);
+  } catch {
+    return json({ ok: false, reason: 'error' }, 500);
+  }
+  const decision = decideUnlimitedRequest({
+    email: session.email,
+    status: existing?.status ?? null,
+    exists: Boolean(existing),
+  });
+  if (!decision.ok) return json({ ok: false, reason: decision.reason }, decision.reason === 'blocked' ? 403 : 401);
+  try {
+    if (!existing && decision.create) {
+      const created = await recordVisit(env.DB, {
+        email: session.email,
+        name: session.name,
+        avatar: session.image,
+        sessionId: session.sessionId,
+      });
+      if (decision.notify && created) await notifyAccessRequest(env, created);
+      return json({ ok: true, access: created?.status ?? decision.status, unlimited: decision.unlimited });
+    }
+    if (existing && existing.status !== decision.status) {
+      const updated = await setStatus(env.DB, existing.email, decision.status);
+      if (decision.notify && updated) await notifyAccessRequest(env, updated);
+      return json({ ok: true, access: updated?.status ?? decision.status, unlimited: decision.unlimited });
+    }
+    return json({ ok: true, access: existing?.status ?? decision.status, unlimited: decision.unlimited });
+  } catch {
+    return json({ ok: false, reason: 'error' }, 500);
+  }
 }
 
 async function handleAdmin(request: Request, env: Env): Promise<Response> {
@@ -227,40 +225,20 @@ async function handlePush(request: Request, env: Env): Promise<Response> {
   }
 }
 
-async function handleAnalysis(request: Request, env: Env, email: string): Promise<Response> {
-  if (!env.DB || !email) return json({ ok: false, reason: 'unauthorized' }, 401);
-  const url = new URL(request.url);
-  if (request.method === 'GET') {
-    const videoId = url.searchParams.get('videoId') ?? '';
-    try {
-      if (!videoId) return json({ ok: true, items: await listAnalysis(env.DB, email) });
-      if (!/^[\w-]{11}$/.test(videoId)) return json({ ok: false, reason: 'invalid' }, 400);
-      const analysis = await readAnalysis(env.DB, email, videoId);
-      if (!analysis) return json({ ok: false, reason: 'not_found' }, 404);
-      return json({ ok: true, analysis });
-    } catch {
-      return json({ ok: false, reason: 'error' }, 500);
-    }
+async function search(request: Request, url: URL, env: Env): Promise<Response> {
+  if (url.searchParams.get('probe')) {
+    return json(env.YT_API_KEY ? { ok: true, items: [] } : { ok: false, reason: 'missing_key', items: [] });
   }
-  if (request.method !== 'PUT') return json({ ok: false, reason: 'method' }, 405);
-  if (!mutationOriginAllowed(request.headers.get('origin'), url.origin)) return json({ ok: false, reason: 'forbidden' }, 403);
-  const parsed = parseAnalysisPut(await request.json().catch(() => null));
-  if (!parsed) return json({ ok: false, reason: 'invalid' }, 400);
-  try {
-    const analysis = await upsertAnalysis(env.DB, email, parsed);
-    return json({ ok: true, analysis });
-  } catch {
-    return json({ ok: false, reason: 'error' }, 500);
-  }
-}
+  const q = normalizeSearchQuery(url.searchParams.get('q') ?? '');
+  if (!q) return json({ ok: true, items: [] });
 
-async function search(url: URL, env: Env): Promise<Response> {
-  if (!env.YT_API_KEY) {
-    return json({ ok: false, reason: 'missing_key', items: [] });
-  }
-  const probe = url.searchParams.get('probe');
-  const q = (url.searchParams.get('q') ?? '').trim().slice(0, 120);
-  if (probe || !q) return json({ ok: true, items: [] });
+  const cacheId = `search:${q}`;
+  const cached = await readCachedJson(cacheId);
+  if (cached && typeof cached === 'object' && (cached as { ok?: boolean }).ok === true) return json(cached);
+
+  if (!env.YT_API_KEY) return json({ ok: false, reason: 'missing_key', items: [] });
+  const budget = await keyBudget(request, env);
+  if (budget.action === 'deny') return json({ ok: false, reason: 'limit', items: [] }, 429);
 
   const endpoint = new URL('https://www.googleapis.com/youtube/v3/search');
   endpoint.searchParams.set('part', 'snippet');
@@ -271,33 +249,16 @@ async function search(url: URL, env: Env): Promise<Response> {
 
   try {
     const upstream = await fetch(endpoint);
-    if (!upstream.ok) {
-      return json({ ok: false, reason: 'upstream', items: [] });
-    }
-    const data = (await upstream.json()) as {
-      items?: Array<{
-        id?: { videoId?: string };
-        snippet?: {
-          title?: string;
-          channelTitle?: string;
-          thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
-        };
-      }>;
-    };
-    const items: SearchItem[] = [];
-    for (const item of data.items ?? []) {
-      const videoId = item.id?.videoId;
-      if (!videoId || !VIDEO_ID.test(videoId)) continue;
-      const thumbs = item.snippet?.thumbnails;
-      items.push({
-        videoId,
-        title: item.snippet?.title || videoId,
-        channel: item.snippet?.channelTitle || '',
-        thumbnail: thumbs?.medium?.url || thumbs?.default?.url || null,
-      });
-    }
-    return json({ ok: true, items });
+    const data = await upstream.json().catch(() => null);
+    await chargeBudget(env, budget);
+    const failure = youtubeFailure(upstream.status, data);
+    if (failure === 'quota') return json({ ok: false, reason: 'quota', items: [] }, 429);
+    if (!upstream.ok || failure) return json({ ok: false, reason: 'upstream', items: [] });
+    const body = { ok: true, items: parseSearchItems(data) };
+    await writeCachedJson(cacheId, body, SEARCH_CACHE_SECONDS);
+    return json(body);
   } catch {
+    await chargeBudget(env, budget);
     return json({ ok: false, reason: 'upstream', items: [] });
   }
 }

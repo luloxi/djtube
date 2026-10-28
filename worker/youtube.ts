@@ -1,8 +1,11 @@
 import { mutationOriginAllowed } from '../src/lib/access';
 import { parseDataApiPlaylist, parseInnertubePlaylist, type PlaylistPage } from '../src/lib/playlist';
+import { fnv1a, PLAYLIST_CACHE_SECONDS, youtubeFailure } from '../src/lib/quota';
 import { hasYouTubeScope, youtubePlaylistUrl } from '../src/lib/queue-export';
 import { addYouTubePlaylistItems, createYouTubePlaylist, type YoutubeFailure } from '../src/lib/youtube-playlist';
 import { getAuth, type AuthEnv } from './auth';
+import { chargeBudget, keyBudget } from './budget';
+import { readCachedJson, writeCachedJson } from './yt-cache';
 
 const PLAYLIST_ID = /^[\w-]{2,128}$/;
 const VIDEO_ID = /^[\w-]{11}$/;
@@ -21,7 +24,7 @@ function clipToken(value: string): string | null {
   return token;
 }
 
-async function fetchDataApiPage(playlistId: string, pageToken: string, key: string): Promise<PlaylistPage | null> {
+async function fetchDataApiPage(playlistId: string, pageToken: string, key: string): Promise<PlaylistPage | 'quota' | null> {
   const endpoint = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
   endpoint.searchParams.set('part', 'snippet,status');
   endpoint.searchParams.set('maxResults', '50');
@@ -29,9 +32,11 @@ async function fetchDataApiPage(playlistId: string, pageToken: string, key: stri
   if (pageToken) endpoint.searchParams.set('pageToken', pageToken);
   endpoint.searchParams.set('key', key);
   const response = await fetch(endpoint);
+  const data = await response.json().catch(() => null);
   if (response.status === 404) return { items: [], nextPageToken: null };
+  if (youtubeFailure(response.status, data) === 'quota') return 'quota';
   if (!response.ok) return null;
-  return parseDataApiPlaylist(await response.json().catch(() => null));
+  return parseDataApiPlaylist(data);
 }
 
 function innertubeContext() {
@@ -72,20 +77,40 @@ export async function handlePlaylist(request: Request, env: TokenEnv): Promise<R
   const pageToken = typeof body?.pageToken === 'string' ? body.pageToken.trim() : '';
   if (pageToken.length > 8000) return json({ ok: false, reason: 'invalid' }, 400);
 
+  const cacheId = `playlist:${list}:${fnv1a(pageToken)}`;
+  const cached = await readCachedJson(cacheId);
+  if (cached && typeof cached === 'object' && (cached as { ok?: boolean }).ok === true) return json(cached);
+
+  let quotaHit = false;
+  let denied = false;
   if (env.YT_API_KEY) {
-    try {
-      const page = await fetchDataApiPage(list, pageToken, env.YT_API_KEY);
-      if (page) {
-        return json({ ok: true, items: page.items, nextPageToken: clipToken(page.nextPageToken ?? '') });
+    const budget = await keyBudget(request, env);
+    if (budget.action === 'deny') {
+      denied = true;
+    } else {
+      try {
+        const page = await fetchDataApiPage(list, pageToken, env.YT_API_KEY);
+        await chargeBudget(env, budget);
+        if (page === 'quota') quotaHit = true;
+        else if (page) {
+          const body = { ok: true, items: page.items, nextPageToken: clipToken(page.nextPageToken ?? '') };
+          await writeCachedJson(cacheId, body, PLAYLIST_CACHE_SECONDS);
+          return json(body);
+        }
+      } catch {
+        await chargeBudget(env, budget);
+        /* The key stays on the server. Fall through to continuation. */
       }
-    } catch {
-      /* The key stays on the server. Fall through to continuation. */
     }
   }
   try {
     const page = await fetchInnertubePage(list, pageToken);
-    return json({ ok: true, items: page.items, nextPageToken: clipToken(page.nextPageToken ?? '') });
+    const body = { ok: true, items: page.items, nextPageToken: clipToken(page.nextPageToken ?? '') };
+    await writeCachedJson(cacheId, body, PLAYLIST_CACHE_SECONDS);
+    return json(body);
   } catch {
+    if (quotaHit) return json({ ok: false, reason: 'quota', items: [] }, 429);
+    if (denied) return json({ ok: false, reason: 'limit', items: [] }, 429);
     return json({ ok: false, reason: 'upstream' }, 502);
   }
 }

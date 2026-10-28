@@ -4,7 +4,7 @@ import { App } from './App';
 import { AccessGate } from './components/AccessGate';
 import { AdminPanel } from './components/AdminPanel';
 import { isAccessStatus, isOwnerEmail, normalizeEmail, screenFor } from './lib/access';
-import { signOutAndLeave } from './lib/auth-client';
+import { signInWithGoogle, signOutAndLeave } from './lib/auth-client';
 import './styles.css';
 
 type Me = {
@@ -61,8 +61,19 @@ function Root() {
   });
 
   if (screen === 'admin') return <AdminPanel />;
-  if (screen === 'app') return <App owner={isOwnerEmail(me?.email)} onSignOut={() => void signOutAndLeave()} />;
-  return <AccessGate mode={screen} access={me?.access} email={me?.email} />;
+  if (screen === 'app') {
+    return (
+      <App
+        owner={isOwnerEmail(me?.email)}
+        email={me?.email ?? null}
+        access={me?.access ?? null}
+        configured={me?.configured ?? true}
+        onSignIn={() => void signInWithGoogle()}
+        onSignOut={() => void signOutAndLeave()}
+      />
+    );
+  }
+  return <AccessGate mode={screen} email={me?.email} />;
 }
 
 const root = document.getElementById('root');

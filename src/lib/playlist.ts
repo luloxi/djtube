@@ -238,7 +238,16 @@ export function readPlaylistPayload(data: unknown): PlaylistPage | null {
   return { items, nextPageToken: next };
 }
 
-export async function fetchPlaylistPage(playlistId: string, pageToken: string | null, signal?: AbortSignal): Promise<PlaylistPage> {
+export async function fetchPlaylistPage(
+  playlistId: string,
+  pageToken: string | null,
+  signal?: AbortSignal,
+  ownKey?: string | null,
+): Promise<PlaylistPage> {
+  if (ownKey) {
+    const { fetchOwnPlaylistPage } = await import('./yt-key');
+    return fetchOwnPlaylistPage(playlistId, pageToken ?? '', ownKey, signal);
+  }
   const response = await fetch('/api/playlist', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -247,6 +256,8 @@ export async function fetchPlaylistPage(playlistId: string, pageToken: string | 
     cache: 'no-store',
   });
   const data = await response.json().catch(() => null);
+  const reason = data && typeof data === 'object' && typeof (data as { reason?: unknown }).reason === 'string' ? (data as { reason: string }).reason : '';
+  if (reason === 'limit' || reason === 'quota') throw new Error(reason);
   const page = readPlaylistPayload(data);
   if (!response.ok || !page) throw new Error('playlist');
   return page;

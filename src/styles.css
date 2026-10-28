@@ -77,6 +77,7 @@ button.primary:hover:not(:disabled),
 input[type="url"],
 input[type="text"],
 input[type="search"],
+input[type="password"],
 input[type="number"],
 input[type="decimal"] {
   background: transparent;
@@ -90,6 +91,7 @@ input[type="decimal"] {
 input[type="url"]:focus,
 input[type="text"]:focus,
 input[type="search"]:focus,
+input[type="password"]:focus,
 .bpm input:focus {
   outline: none;
   border-bottom-color: var(--amber);
@@ -519,6 +521,7 @@ h2 {
 .tone-tap { --neon: #3df0ff; --neon-glow: rgba(61, 240, 255, 0.9); }
 .tone-disc { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
 .tone-beat { --neon: #ff5c8a; --neon-glow: rgba(255, 92, 138, 0.9); }
+.tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
 
 button[class*="tone-"],
 .rate-value[class*="tone-"] {
@@ -1205,12 +1208,44 @@ button.track-name { cursor: pointer; width: 100%; min-height: 32px; }
 }
 .toast-undo:hover { background: #2d4a3c; }
 
+.limit-note {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--dock-h) + 8px);
+  transform: translateX(-50%);
+  z-index: 8;
+  width: min(380px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 12px;
+  background: #2a2418;
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.limit-note p { margin: 0; flex: 1; }
+
 .top, .top-actions { display: flex; align-items: center; gap: 8px; }
 .top { justify-content: space-between; padding-bottom: 8px; }
 .top-actions { flex-wrap: wrap; justify-content: flex-end; }
 
-a.text-link { color: var(--amber); text-decoration: none; cursor: pointer; }
-a.text-link:hover { text-decoration: underline; }
+a.text-link,
+button.text-link {
+  color: var(--amber);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+}
+a.text-link:hover,
+button.text-link:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
 
 .gate {
   height: 100%;
@@ -1650,3 +1685,13 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
   box-shadow: 0 0 8px rgba(231, 164, 90, 0.45);
 }
 .choice:disabled { cursor: not-allowed; }
+
+.key-sheet { width: min(440px, 100%); }
+.key-help { color: var(--muted); font-size: 13px; }
+.key-help p { margin: 0 0 8px; }
+.key-help ol { margin: 0 0 8px; padding-left: 1.2em; }
+.key-help li { margin: 0 0 4px; }
+.key-help a { color: var(--amber); }
+.key-help code { color: var(--text); font-size: 0.92em; }
+.key-form { display: flex; align-items: center; gap: 4px; }
+.key-form input { flex: 1; min-width: 0; }

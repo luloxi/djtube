@@ -1,4 +1,4 @@
-import type { AudioCoverage, Highlight } from '../types';
+import type { Highlight } from '../types';
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
@@ -66,10 +66,4 @@ export function importHighlights(current: Highlight[], json: string): Highlight[
   const byId = new Map(current.map((item) => [item.id, item]));
   for (const item of incoming) byId.set(item.id, item);
   return [...byId.values()];
-}
-
-export function regionHasAudio(coverage: AudioCoverage | null | undefined, start: number, end: number): boolean {
-  if (!coverage?.hasAudio) return false;
-  if (!(end > start)) return false;
-  return start >= coverage.recordStart - 0.35 && end <= coverage.recordEnd + 0.35;
 }

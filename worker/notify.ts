@@ -27,7 +27,7 @@ export function approvalFrom(env: NotifyEnv): string {
 
 export async function notifyAccessRequest(env: NotifyEnv, person: { email: string; status: string }): Promise<void> {
   if (isOwnerEmail(person.email) || person.status !== 'pending') return;
-  await sendPush(env, OWNER_EMAIL, 'DJTube', `${person.email} pidió acceso`, '/');
+  await sendPush(env, OWNER_EMAIL, 'DJTube', `${person.email} pidió uso sin límite`, '/');
 }
 
 /**
@@ -53,9 +53,9 @@ export async function sendApprovalMail(env: NotifyEnv, email: string): Promise<v
       body: JSON.stringify({
         from,
         to: [email],
-        subject: 'Acceso',
-        text: `Ya podés entrar.\n${link}\n${CUSTOM_ORIGIN}\n`,
-        html: `<p>Ya podés entrar.</p><p><a href="${link}">DJTube</a></p><p><a href="${CUSTOM_ORIGIN}">${CUSTOM_ORIGIN}</a></p>`,
+        subject: 'Uso sin límite',
+        text: `Ya tenés búsquedas sin límite.\n${link}\n${CUSTOM_ORIGIN}\n`,
+        html: `<p>Ya tenés búsquedas sin límite.</p><p><a href="${link}">DJTube</a></p><p><a href="${CUSTOM_ORIGIN}">${CUSTOM_ORIGIN}</a></p>`,
       }),
     });
     if (!response.ok) console.error(`[approval] resend ${response.status}`);
@@ -72,7 +72,7 @@ export async function sendApprovalMail(env: NotifyEnv, email: string): Promise<v
 export async function notifyApproved(env: NotifyEnv, email: string): Promise<void> {
   await sendApprovalMail(env, email);
   try {
-    await sendPush(env, email, 'DJTube', 'Ya podés entrar', '/');
+    await sendPush(env, email, 'DJTube', 'Ya tenés búsquedas sin límite', '/');
   } catch {
     /* approval already stored */
   }

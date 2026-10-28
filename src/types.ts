@@ -14,6 +14,8 @@ export type DeckModel = {
   cueTime: number;
   playbackRate: number;
   bpm: number | null;
+  /** Seconds of the downbeat the user lined up. Not read from audio. */
+  beatOffset: number | null;
   peaks: number[] | null;
 };
 
@@ -25,22 +27,6 @@ export type Highlight = {
   end: number;
   label: string;
   peaks: number[];
-};
-
-export type AudioCoverage = {
-  recordStart: number;
-  recordEnd: number;
-  hasAudio: boolean;
-};
-
-export type AnalysisMeta = AudioCoverage & {
-  videoId: string;
-  peaks: number[];
-  duration: number;
-  bpm: number | null;
-  /** Seconds of the first downbeat. Missing on rows saved before the grid existed. */
-  beatOffset?: number | null;
-  updatedAt?: string;
 };
 
 export type SessionState = {
@@ -59,6 +45,7 @@ export function emptyDeck(): DeckModel {
     cueTime: 0,
     playbackRate: 1,
     bpm: null,
+    beatOffset: null,
     peaks: null,
   };
 }

@@ -15,8 +15,8 @@ type Person = {
 };
 
 const STATUS_LABEL: Record<AccessStatus, string> = {
-  pending: 'Pendiente',
-  approved: 'Aprobado',
+  pending: 'Pidió',
+  approved: 'Sin límite',
   revoked: 'Revocado',
   blocked: 'Bloqueado',
 };
@@ -72,7 +72,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void } = {}) {
           }
           const next = parsePeople(data);
           setPeople(next);
-          setNote(next.length ? '' : q ? 'Nadie coincide.' : 'Nadie entró todavía.');
+          setNote(next.length ? '' : q ? 'Nadie coincide.' : 'Nadie pidió todavía.');
         })
         .catch(() => {
           if (!cancel) setNote('No pude leer la lista.');
@@ -105,7 +105,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void } = {}) {
     <main className={onClose ? 'admin admin-sheet' : 'admin'} data-testid="admin-panel">
       <header className="top">
         <div>
-          <h1>Accesos</h1>
+          <h1>Uso sin límite</h1>
         </div>
         <div className="top-actions">
           <PushToggle onStatus={setNote} />
@@ -160,12 +160,12 @@ export function AdminPanel({ onClose }: { onClose?: () => void } = {}) {
               </div>
               <div className="person-actions">
                 <button type="button" disabled={rowBusy || person.status === 'approved'} onClick={() => void act(person.email, 'approve')}>
-                  Aprobar
+                  Sin límite
                 </button>
                 <button
                   type="button"
                   disabled={rowBusy || person.owner || person.status !== 'approved'}
-                  title={person.owner ? 'El dueño siempre entra' : undefined}
+                  title={person.owner ? 'El dueño no tiene tope' : undefined}
                   onClick={() => void act(person.email, 'revoke')}
                 >
                   Revocar
@@ -173,7 +173,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void } = {}) {
                 <button
                   type="button"
                   disabled={rowBusy || person.owner || person.status === 'blocked'}
-                  title={person.owner ? 'El dueño siempre entra' : undefined}
+                  title={person.owner ? 'El dueño no tiene tope' : undefined}
                   onClick={() => void act(person.email, 'block')}
                 >
                   Bloquear

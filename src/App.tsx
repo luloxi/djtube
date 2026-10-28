@@ -13,6 +13,7 @@ import { WebcamTile } from './components/WebcamTile';
 import { Header, type SideTab } from './components/Header';
 import { InstallBanner } from './components/InstallBanner';
 import { Library } from './components/Library';
+import { PlaylistAsk } from './components/PlaylistAsk';
 import { Preparar } from './components/Preparar';
 import { SearchBox } from './components/SearchBox';
 import { SyncNote } from './components/SyncNote';
@@ -23,14 +24,15 @@ import { playChime } from './lib/chime';
 import { downloadBlob } from './lib/download';
 import { addHighlight, regionHasAudio } from './lib/highlights';
 import { pushAnalysis, reconcileAnalysis } from './lib/analysis-sync';
-import { easeRateLadder, planSyncedStart } from './lib/beats';
+import { planSyncedStart } from './lib/beats';
 import { deckSnapshot, loadAnalysis, loadAudio, loadCoverages, loadHighlights, loadLibrary, loadSession, saveAnalysis, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clearQueue, removeQueuedTrack, restoreTrack } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
 import { slicePeaks } from './lib/peaks';
+import { fetchPlaylistPage, playlistItemToTrack, takeNewPlaylistItems, walkPlaylistPages, type PlaylistItem } from './lib/playlist';
 import { openSyncChannel, parseSyncMessage } from './lib/sync-channel';
 import { collectTracks } from './lib/sync-queue';
-import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds } from './lib/youtube';
+import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds, type ParsedYouTube } from './lib/youtube';
 import { readPlaylistIds } from './lib/youtube-api';
 
 function deskBounds(): Bounds {
@@ -46,7 +48,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [coverage, setCoverage] = useState<Record<string, AudioCoverage>>({});
   const [rates, setRates] = useState<Record<DeckId, number[]>>({ A: DEFAULT_RATES, B: DEFAULT_RATES });
-  const [busy, setBusy] = useState(false);
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlistAsk, setPlaylistAsk] = useState<ParsedYouTube | null>(null);
   const [booted, setBooted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
   const [tab, setTab] = useState<SideTab | null>(null);
@@ -60,13 +63,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
   });
   const [prepararPane, setPrepararPane] = useState<PrepararPane>('sync');
   const [beatOffsets, setBeatOffsets] = useState<Record<string, number | null>>({});
-  const [nudgeSync, setNudgeSync] = useState(() => {
-    try {
-      return window.localStorage.getItem('djtube-sync-nudge') === '1';
-    } catch {
-      return false;
-    }
-  });
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches);
   const [layout, setLayout] = useState<DeskLayout>(() => {
     const bounds = deskBounds();
@@ -81,8 +77,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
       return false;
     }
   });
-  const easeTimers = useRef<number[]>([]);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const playlistGen = useRef(0);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1024px) and (pointer: fine)');
@@ -329,15 +325,9 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     };
   }, [owner, adminOpen]);
 
-  function clearEase() {
-    easeTimers.current.forEach((timer) => window.clearTimeout(timer));
-    easeTimers.current = [];
-  }
-
   function startSynced(id: DeckId) {
     const other: DeckId = id === 'A' ? 'B' : 'A';
     const leader = decksRef.current[other];
-    const follower = decksRef.current[id];
     const leaderTime = handleFor(other)?.getTime() ?? 0;
     let leaderPlaying = false;
     try {
@@ -345,36 +335,19 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     } catch {
       leaderPlaying = false;
     }
-    const available = rates[id];
     const plan = planSyncedStart({
       leaderTime,
       leaderBpm: leader.bpm,
       leaderOffset: leader.videoId ? (beatOffsets[leader.videoId] ?? null) : null,
       leaderRate: leader.playbackRate,
       leaderPlaying,
-      followerBpm: follower.bpm,
-      available,
-      nudge: nudgeSync,
     });
     if (!plan) {
       setStatus('Sin beat');
       return;
     }
     window.setTimeout(() => {
-      const handle = handleFor(id);
-      handle?.play();
-      if (plan.matchRate != null) {
-        handle?.setRate(plan.matchRate);
-        setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: plan.matchRate as number } }));
-        clearEase();
-        easeRateLadder(plan.matchRate, 1, available).forEach((rate, index) => {
-          const timer = window.setTimeout(() => {
-            handleFor(id)?.setRate(rate);
-            setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate: rate } }));
-          }, 900 * (index + 1));
-          easeTimers.current.push(timer);
-        });
-      }
+      handleFor(id)?.play();
       setStatus(`Beat ${id}`);
     }, plan.delayMs);
   }
@@ -538,43 +511,81 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
     setStatus(`Deck ${id}`);
   }
 
-  async function ingest(raw: string, target: 'queue' | DeckId) {
+  function showQueue() {
+    setLeftPane('queue');
+    setTab('queue');
+  }
+
+  function appendTracks(items: PlaylistItem[]) {
+    const tracks = items.map(playlistItemToTrack);
+    if (!tracks.length) return;
+    setLibrary((prev) => {
+      const known = new Set(prev.map((item) => item.videoId));
+      const fresh = tracks.filter((item) => !known.has(item.videoId));
+      return fresh.length ? [...prev, ...fresh] : prev;
+    });
+  }
+
+  function addVideoToQueue(videoId: string) {
+    remember(trackFromId(videoId));
+    void enrichTracks([videoId], rename);
+    setStatus('En cola');
+    showQueue();
+  }
+
+  async function addWholePlaylist(playlistId: string) {
+    const gen = ++playlistGen.current;
+    setPlaylistLoading(true);
+    setStatus('Agregando…');
+    showQueue();
+    const queued = new Set(libraryRef.current.map((item) => item.videoId));
+    let added = 0;
+    const take = (items: PlaylistItem[]) => {
+      if (gen !== playlistGen.current || !items.length) return;
+      added += items.length;
+      appendTracks(items);
+    };
+    try {
+      added = await walkPlaylistPages((token) => fetchPlaylistPage(playlistId, token), queued, take);
+    } catch {
+      if (gen !== playlistGen.current) return;
+      if (added === 0) {
+        try {
+          const ids = uniqueIds(await readPlaylistIds(playlistId));
+          const fresh = takeNewPlaylistItems(
+            ids.map((id) => ({ videoId: id, title: id, thumbnail: null })),
+            queued,
+          );
+          take(fresh);
+          void enrichTracks(
+            fresh.map((item) => item.videoId),
+            rename,
+          );
+        } catch {
+          if (gen === playlistGen.current) {
+            setPlaylistLoading(false);
+            setStatus('Playlist no leída');
+          }
+          return;
+        }
+      }
+    }
+    if (gen !== playlistGen.current) return;
+    setPlaylistLoading(false);
+    setStatus(`${added} temas agregados`);
+  }
+
+  function onYouTube(raw: string) {
     const parsed = parseYouTubeUrl(raw);
     if (!parsed) {
       setStatus('Enlace inválido');
       return;
     }
     if (parsed.playlistId) {
-      setBusy(true);
-      setStatus('Playlist…');
-      try {
-        const ids = uniqueIds(await readPlaylistIds(parsed.playlistId)).slice(0, 50);
-        const tracks = ids.map((id) => trackFromId(id));
-        setLibrary((prev) => {
-          const known = new Set(prev.map((item) => item.videoId));
-          return [...tracks.filter((item) => !known.has(item.videoId)), ...prev];
-        });
-        void enrichTracks(ids, rename);
-        const first = parsed.videoId ? trackFromId(parsed.videoId) : tracks[0];
-        if (target !== 'queue' && first) await loadInto(target, first);
-        setStatus(ids.length ? `${Math.min(ids.length, 50)} en cola` : 'Playlist vacía');
-      } catch {
-        setStatus('Playlist no leída');
-        if (parsed.videoId && target !== 'queue') await loadInto(target, trackFromId(parsed.videoId));
-      } finally {
-        setBusy(false);
-      }
+      setPlaylistAsk(parsed);
       return;
     }
-    if (!parsed.videoId) return;
-    const track = trackFromId(parsed.videoId);
-    if (target === 'queue') {
-      remember(track);
-      setStatus('En cola');
-    } else {
-      await loadInto(target, track);
-    }
-    void enrichTracks([parsed.videoId], rename);
+    if (parsed.videoId) addVideoToQueue(parsed.videoId);
   }
 
   function removeQueued(track: Track) {
@@ -690,9 +701,8 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
           <div className={leftPane === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
             <Library
               tracks={library}
-              busy={busy}
+              loading={playlistLoading}
               titleDeck={titleDeck}
-              onSubmit={(url, target) => void ingest(url, target)}
               onLoad={(track, id) => void loadInto(id, track)}
               keepIds={[decks.A.videoId, decks.B.videoId]}
               onRemove={removeQueued}
@@ -700,7 +710,7 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             />
           </div>
           <div className={leftPane === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
-            <SearchBox onLoad={(track, id) => void loadInto(id, track)} />
+            <SearchBox onLoad={(track, id) => void loadInto(id, track)} onYouTube={onYouTube} />
           </div>
         </aside>
         <main className="stage">
@@ -749,10 +759,9 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
           <div className="queue-strip" aria-label="Cola">
             <Library
               tracks={library}
-              busy={busy}
+              loading={playlistLoading}
               compact
               titleDeck={titleDeck}
-              onSubmit={(url, target) => void ingest(url, target)}
               onLoad={(track, id) => void loadInto(id, track)}
               keepIds={[decks.A.videoId, decks.B.videoId]}
               onRemove={removeQueued}
@@ -772,26 +781,6 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
             onX={setPosition}
             onGlide={glide}
           >
-            <button
-              type="button"
-              className="icon-button tone-beat"
-              aria-pressed={nudgeSync}
-              aria-label="Igualar BPM"
-              title="Igualar BPM"
-              onClick={() => {
-                setNudgeSync((on) => {
-                  const next = !on;
-                  try {
-                    window.localStorage.setItem('djtube-sync-nudge', next ? '1' : '0');
-                  } catch {
-                    /* ignore */
-                  }
-                  return next;
-                });
-              }}
-            >
-              <Icon name="beat" />
-            </button>
             <span className="beat-pair">
               <button
                 type="button"
@@ -860,6 +849,22 @@ export function App({ owner = false, onSignOut }: { owner?: boolean; onSignOut?:
           setTab((current) => (current === next ? null : next));
         }}
       />
+      {playlistAsk ? (
+        <PlaylistAsk
+          hasVideo={Boolean(playlistAsk.videoId)}
+          onClose={() => setPlaylistAsk(null)}
+          onAll={() => {
+            const id = playlistAsk.playlistId;
+            setPlaylistAsk(null);
+            if (id) void addWholePlaylist(id);
+          }}
+          onOne={() => {
+            const id = playlistAsk.videoId;
+            setPlaylistAsk(null);
+            if (id) addVideoToQueue(id);
+          }}
+        />
+      ) : null}
       {adminOpen ? (
         <div className="admin-overlay" role="dialog" aria-modal="true" aria-label="Admin">
           <button type="button" className="admin-backdrop" aria-label="Cerrar" onClick={() => setAdminOpen(false)} />

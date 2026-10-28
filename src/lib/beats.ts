@@ -1,5 +1,3 @@
-import { nearestPlaybackRate } from './mixer';
-
 /** Onset times in seconds, from the same flux peaks the BPM fallback uses. */
 export function onsetTimes(channel: Float32Array, sampleRate: number): number[] {
   if (!(sampleRate > 0) || channel.length < sampleRate) return [];
@@ -92,33 +90,17 @@ export function nextBeatDelay(time: number, bpm: number, offset: number): number
   return period - phase;
 }
 
+/** Wait for the leader's next beat, then start. Speed matching is not part of this. */
 export function planSyncedStart(input: {
   leaderTime: number;
   leaderBpm: number | null;
   leaderOffset: number | null;
   leaderRate: number;
   leaderPlaying: boolean;
-  followerBpm: number | null;
-  available: number[];
-  nudge: boolean;
-}): { delayMs: number; matchRate: number | null } | null {
+}): { delayMs: number } | null {
   if (input.leaderBpm == null || !(input.leaderBpm > 0)) return null;
   const offset = input.leaderOffset ?? 0;
   const rate = input.leaderRate > 0 ? input.leaderRate : 1;
   const mediaDelay = input.leaderPlaying ? nextBeatDelay(input.leaderTime, input.leaderBpm, offset) : 0;
-  let matchRate: number | null = null;
-  if (input.nudge && input.followerBpm != null && input.followerBpm > 0) {
-    matchRate = nearestPlaybackRate((input.leaderBpm * rate) / input.followerBpm, input.available);
-  }
-  return { delayMs: Math.round((mediaDelay / rate) * 1000), matchRate };
-}
-
-/** Discrete YouTube rates from `from` toward `to`, not including `from`. */
-export function easeRateLadder(from: number, to: number, available: number[]): number[] {
-  const sorted = [...new Set(available.filter((rate) => rate > 0))].sort((a, b) => a - b);
-  if (!sorted.length || !(from > 0) || !(to > 0)) return [];
-  const target = sorted.reduce((best, rate) => (Math.abs(rate - to) < Math.abs(best - to) ? rate : best));
-  if (Math.abs(from - target) < 0.001) return [];
-  if (target > from) return sorted.filter((rate) => rate > from + 0.001 && rate <= target + 0.001);
-  return sorted.filter((rate) => rate < from - 0.001 && rate >= target - 0.001).reverse();
+  return { delayMs: Math.round((mediaDelay / rate) * 1000) };
 }

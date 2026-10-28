@@ -1,32 +1,30 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { DeckId, Track } from '../types';
 import { consumeDeckDrop, swipeCommit, trackIsLoaded } from '../lib/library';
 import { Icon } from './icons';
+import { QueueSave } from './QueueSave';
 
 type Props = {
   tracks: Track[];
-  busy: boolean;
+  loading?: boolean;
   titleDeck?: DeckId | null;
   compact?: boolean;
   keepIds?: Array<string | null | undefined>;
-  onSubmit: (url: string, target: 'queue' | DeckId) => void;
   onLoad: (track: Track, deck: DeckId) => void;
   onRemove?: (track: Track) => void;
   onClear?: () => void;
 };
 
-export function Library({ tracks, busy, titleDeck = null, compact = false, keepIds = [], onSubmit, onLoad, onRemove, onClear }: Props) {
-  const [url, setUrl] = useState('');
-
+export function Library({ tracks, loading = false, titleDeck = null, compact = false, keepIds = [], onLoad, onRemove, onClear }: Props) {
   return (
-    <section className="panel" aria-label="Cola">
+    <section className="panel" aria-label="Cola" aria-busy={loading || undefined}>
       <div className="panel-head">
         <h2>Cola</h2>
         {onClear ? (
           <button
             type="button"
             className="icon-button"
-            disabled={busy || tracks.length === 0}
+            disabled={tracks.length === 0}
             aria-label="Vaciar cola"
             title="Vaciar cola"
             onClick={onClear}
@@ -35,60 +33,8 @@ export function Library({ tracks, busy, titleDeck = null, compact = false, keepI
           </button>
         ) : null}
       </div>
-      {compact ? null : (
-      <form
-        className="stack"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit(url, 'queue');
-          setUrl('');
-        }}
-      >
-        <input
-          data-testid="library-url"
-          type="url"
-          inputMode="url"
-          placeholder="URL"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          aria-label="URL de YouTube"
-        />
-        <div className="row">
-          <button type="submit" className="icon-button" disabled={busy} aria-label="A la cola" title="A la cola">
-            <Icon name="plus" />
-          </button>
-          <button
-            type="button"
-            className="icon-button letter"
-            data-testid="load-deck-a"
-            disabled={busy}
-            aria-label="Cargar A"
-            title="Cargar A"
-            onClick={() => {
-              onSubmit(url, 'A');
-              setUrl('');
-            }}
-          >
-            A
-          </button>
-          <button
-            type="button"
-            className="icon-button letter"
-            data-testid="load-deck-b"
-            disabled={busy}
-            aria-label="Cargar B"
-            title="Cargar B"
-            onClick={() => {
-              onSubmit(url, 'B');
-              setUrl('');
-            }}
-          >
-            B
-          </button>
-        </div>
-      </form>
-      )}
-      <div className="list">
+      {loading ? <div className="queue-loading" data-testid="queue-loading" /> : null}
+      <div className="list" data-testid={compact ? undefined : 'queue-list'}>
         {tracks.map((track) => (
           <TrackRow
             key={track.videoId}
@@ -100,6 +46,7 @@ export function Library({ tracks, busy, titleDeck = null, compact = false, keepI
           />
         ))}
       </div>
+      {compact ? null : <QueueSave tracks={tracks} />}
     </section>
   );
 }

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { DeckId, Track } from '../types';
+import { parseYouTubeUrl } from '../lib/youtube';
 import { Icon } from './icons';
 import { TrackRow } from './Library';
 
 type Item = Track & { channel?: string };
 
-export function SearchBox({ onLoad }: { onLoad: (track: Track, deck: DeckId) => void }) {
+export function SearchBox({ onLoad, onYouTube }: { onLoad: (track: Track, deck: DeckId) => void; onYouTube: (raw: string) => void }) {
   const [mode, setMode] = useState<'loading' | 'ready' | 'nokey' | 'down'>('loading');
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<Item[]>([]);
@@ -29,10 +30,26 @@ export function SearchBox({ onLoad }: { onLoad: (track: Track, deck: DeckId) => 
     };
   }, []);
 
+  function takeUrl(raw: string) {
+    setQuery('');
+    setItems([]);
+    setNote('');
+    onYouTube(raw);
+  }
+
   async function search(event: React.FormEvent) {
     event.preventDefault();
     const q = query.trim();
     if (!q) return;
+    if (parseYouTubeUrl(q)) {
+      takeUrl(q);
+      return;
+    }
+    if (mode !== 'ready') {
+      setNote(mode === 'nokey' ? 'Sin clave' : 'Sin búsqueda');
+      setItems([]);
+      return;
+    }
     setNote('');
     try {
       const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
@@ -54,7 +71,8 @@ export function SearchBox({ onLoad }: { onLoad: (track: Track, deck: DeckId) => 
     }
   }
 
-  const placeholder = mode === 'loading' ? '…' : mode === 'nokey' ? 'Sin clave' : mode === 'down' ? 'Sin búsqueda' : 'YouTube';
+  const looksLikeUrl = Boolean(parseYouTubeUrl(query));
+  const canSearch = mode === 'ready' || looksLikeUrl;
 
   return (
     <section className="panel" aria-label="Buscar">
@@ -62,19 +80,24 @@ export function SearchBox({ onLoad }: { onLoad: (track: Track, deck: DeckId) => 
       <form className="search-form" onSubmit={search}>
         <input
           type="search"
-          placeholder={placeholder}
+          placeholder="URL o búsqueda"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData('text') || event.clipboardData.getData('text/plain');
+            if (!parseYouTubeUrl(text)) return;
+            event.preventDefault();
+            takeUrl(text);
+          }}
           aria-label="Buscar en YouTube"
           data-testid="search-hint"
-          disabled={mode !== 'ready'}
           enterKeyHint="search"
         />
-        <button type="submit" className="icon-button search-go" disabled={mode !== 'ready'} aria-label="Buscar" title="Buscar">
+        <button type="submit" className="icon-button search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar">
           <Icon name="search" />
         </button>
       </form>
-      {note ? <p className="hint">{note}</p> : null}
+      {note ? <p className="hint">{note}</p> : mode === 'nokey' ? <p className="hint">Sin clave</p> : mode === 'down' ? <p className="hint">Sin búsqueda</p> : null}
       <div className="list">
         {items.map((item) => (
           <TrackRow key={item.videoId} track={item} onLoad={onLoad} />

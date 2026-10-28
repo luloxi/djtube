@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { beatMarks, beatOffsetFromOnsets, easeRateLadder, nextBeatDelay, onsetTimes, planSyncedStart } from './beats';
+import { beatMarks, beatOffsetFromOnsets, nextBeatDelay, onsetTimes, planSyncedStart } from './beats';
 
 describe('beat grid', () => {
   it('finds a steady offset and draws downbeats on that pulse', () => {
@@ -17,7 +17,7 @@ describe('beat grid', () => {
     expect(beatMarks(120, null, 10)).toEqual([]);
   });
 
-  it('waits until the leader beat, and can nudge toward a matching rate', () => {
+  it('waits until the leader beat', () => {
     expect(nextBeatDelay(1.0, 120, 0)).toBe(0);
     expect(nextBeatDelay(1.1, 120, 0)).toBeCloseTo(0.4, 2);
     const plan = planSyncedStart({
@@ -26,30 +26,17 @@ describe('beat grid', () => {
       leaderOffset: 0,
       leaderRate: 1,
       leaderPlaying: true,
-      followerBpm: 100,
-      available: [1, 1.25, 1.5],
-      nudge: true,
     });
-    expect(plan?.delayMs).toBe(400);
-    expect(plan?.matchRate).toBe(1.25);
+    expect(plan).toEqual({ delayMs: 400 });
     const paused = planSyncedStart({
       leaderTime: 1.1,
       leaderBpm: 120,
       leaderOffset: 0,
       leaderRate: 2,
       leaderPlaying: false,
-      followerBpm: 120,
-      available: [1, 2],
-      nudge: false,
     });
-    expect(paused).toEqual({ delayMs: 0, matchRate: null });
+    expect(paused).toEqual({ delayMs: 0 });
     expect(planSyncedStart({ ...pausedInput(), leaderBpm: null })).toBeNull();
-  });
-
-  it('eases back through the rates YouTube actually offers', () => {
-    expect(easeRateLadder(1.5, 1, [0.5, 1, 1.25, 1.5, 2])).toEqual([1.25, 1]);
-    expect(easeRateLadder(0.5, 1, [0.5, 0.75, 1, 1.25])).toEqual([0.75, 1]);
-    expect(easeRateLadder(1, 1, [1, 1.25])).toEqual([]);
   });
 
   it('picks impulses out of a click track', () => {
@@ -70,8 +57,5 @@ function pausedInput() {
     leaderOffset: 0,
     leaderRate: 1,
     leaderPlaying: false,
-    followerBpm: 120,
-    available: [1],
-    nudge: false,
   };
 }

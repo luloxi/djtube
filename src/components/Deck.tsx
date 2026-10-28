@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { DeckId, Track } from '../types';
 import { DEFAULT_RATES } from '../types';
 import { bpmFromTaps } from '../lib/bpm';
@@ -626,12 +627,36 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
               <div className="yt-mount" ref={mountRef} />
             </div>
             {disc ? <div className="disc-hole" aria-hidden="true" /> : null}
+            <button
+              type="button"
+              className="icon-button tone-disc viz-toggle"
+              data-testid={`viz-${id}`}
+              title="Disco"
+              aria-label="Disco"
+              aria-pressed={disc}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                setDisc((on) => {
+                  const next = !on;
+                  try {
+                    writeDiscOn(window.localStorage, id, next);
+                  } catch {
+                    /* ignore */
+                  }
+                  return next;
+                });
+              }}
+            >
+              <Icon name="disc" size={16} />
+            </button>
           </div>
         </div>
         <div className="transport" data-testid={`transport-${id.toLowerCase()}`}>
           <button
             type="button"
             className="icon-button play-btn tone-play"
+            data-testid={`play-${id}`}
             aria-label={playing ? 'Pausa' : 'Play'}
             title={playing ? 'Pausa' : 'Play'}
             aria-pressed={playing}
@@ -651,27 +676,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             <Icon name="cue" />
           </button>
           <TapButton disabled={!videoId} onTap={tap} />
-          <button
-            type="button"
-            className="icon-button tone-disc"
-            title="Disco"
-            aria-label="Disco"
-            aria-pressed={disc}
-            onClick={() => {
-              setDisc((on) => {
-                const next = !on;
-                try {
-                  writeDiscOn(window.localStorage, id, next);
-                } catch {
-                  /* ignore */
-                }
-                return next;
-              });
-            }}
-          >
-            <Icon name="disc" />
-          </button>
-          <RateDrag rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} />
+          <RateControl rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} deck={id} />
         </div>
       </div>
       <div className="wave-wrap">
@@ -793,28 +798,67 @@ function nearestRate(desired: number, rates: number[]): number {
   return rates.reduce((best, rate) => (Math.abs(rate - desired) < Math.abs(best - desired) ? rate : best));
 }
 
-function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: number[]; disabled: boolean; onRate: (rate: number) => void }) {
+function RateControl({
+  rate,
+  rates,
+  disabled,
+  onRate,
+  deck,
+}: {
+  rate: number;
+  rates: number[];
+  disabled: boolean;
+  onRate: (rate: number) => void;
+  deck: string;
+}) {
   const shown = rates.includes(rate) ? rate : nearestRate(rate, rates.length ? rates : [rate]);
   const index = Math.max(0, rates.indexOf(shown));
-  const drag = useRef<{ x: number; index: number; moved: boolean } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ left: number; bottom: number } | null>(null);
   const label = `Velocidad ${shown}×`;
   const higher = rates.filter((value) => value > shown + 0.001);
   const lower = rates.filter((value) => value < shown - 0.001);
 
+  function place() {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const left = Math.min(window.innerWidth - 40, Math.max(40, rect.left + rect.width / 2));
+    setBox({ left, bottom: Math.max(8, window.innerHeight - rect.top + 4) });
+  }
+
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
-      if (!(event.target instanceof Node) || !wrapRef.current?.contains(event.target)) setOpen(false);
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (wrapRef.current?.contains(target) || pickerRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
     };
     window.addEventListener('pointerdown', close);
-    return () => window.removeEventListener('pointerdown', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   function pick(next: number) {
     onRate(next);
     setOpen(false);
+  }
+
+  function toggle() {
+    if (disabled) return;
+    setOpen((value) => {
+      const next = !value;
+      if (next) place();
+      return next;
+    });
   }
 
   return (
@@ -830,39 +874,25 @@ function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: numb
         <Icon name="minus" size={16} />
       </button>
       <div
-        className="rate-drag tone-speed"
-        role="slider"
+        className="rate-value tone-speed"
+        data-testid={`rate-${deck}`}
+        role="button"
         tabIndex={disabled ? -1 : 0}
         title="Velocidad"
         aria-label={label}
-        aria-valuemin={rates[0] ?? shown}
-        aria-valuemax={rates[rates.length - 1] ?? shown}
-        aria-valuenow={shown}
         aria-disabled={disabled}
         aria-expanded={open}
-        onPointerDown={(event) => {
-          if (disabled || !rates.length) return;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          drag.current = { x: event.clientX, index, moved: false };
-        }}
-        onPointerMove={(event) => {
-          const start = drag.current;
-          if (!start || !rates.length || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          if (Math.abs(event.clientX - start.x) > 6) start.moved = true;
-          const delta = Math.round((event.clientX - start.x) / 22);
-          const next = rates[Math.min(rates.length - 1, Math.max(0, start.index + delta))];
-          if (next != null && start.moved) onRate(next);
-        }}
-        onPointerUp={() => {
-          const start = drag.current;
-          drag.current = null;
-          if (!start?.moved && !disabled) setOpen((value) => !value);
-        }}
+        aria-haspopup="listbox"
+        onClick={toggle}
         onKeyDown={(event) => {
           if (disabled) return;
+          if (event.key === 'Escape') {
+            setOpen(false);
+            return;
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            setOpen((value) => !value);
+            toggle();
             return;
           }
           if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -874,39 +904,37 @@ function RateDrag({ rate, rates, disabled, onRate }: { rate: number; rates: numb
         }}
       >
         {shown}×
-        {open && !disabled ? (
-          <>
-            {higher.length ? (
-              <ul className="rate-picker rate-higher">
-                {higher
-                  .slice()
-                  .reverse()
-                  .map((value) => (
-                    <li key={value}>
-                      <button type="button" onClick={() => pick(value)}>
-                        {value}×
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            ) : null}
-            {lower.length ? (
-              <ul className="rate-picker rate-lower">
-                {lower
-                  .slice()
-                  .reverse()
-                  .map((value) => (
-                    <li key={value}>
-                      <button type="button" onClick={() => pick(value)}>
-                        {value}×
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            ) : null}
-          </>
-        ) : null}
       </div>
+      {open && !disabled && box
+        ? createPortal(
+            <ul
+              className="rate-picker"
+              data-testid={`rate-picker-${deck}`}
+              role="listbox"
+              aria-label="Velocidades"
+              ref={pickerRef}
+              style={{ left: box.left, bottom: box.bottom }}
+            >
+              {[...rates].reverse().map((value) => (
+                <li key={value}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={Math.abs(value - shown) < 0.001}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      pick(value);
+                    }}
+                  >
+                    {value}×
+                  </button>
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
       <button
         type="button"
         className="icon-button rate-step tone-speed"

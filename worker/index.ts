@@ -21,6 +21,7 @@ import { authConfig, getAuth, readSession, type AuthEnv } from './auth';
 import type { D1Database } from './d1';
 import { notifyAccessRequest, notifyApproved } from './notify';
 import { deleteSubscription, saveSubscription } from './push-db';
+import { handlePlaylist, handleYouTubePlaylist } from './youtube';
 
 interface Env extends AuthEnv {
   ASSETS: { fetch(input: Request | URL | string): Promise<Response> };
@@ -60,6 +61,16 @@ export default {
       const denied = await requireApp(request, env);
       if (denied) return denied;
       return search(url, env);
+    }
+    if (url.pathname === '/api/playlist') {
+      const denied = await requireApp(request, env);
+      if (denied) return denied;
+      return handlePlaylist(request, env);
+    }
+    if (url.pathname === '/api/youtube/playlist') {
+      const denied = await requireApp(request, env);
+      if (denied) return denied;
+      return handleYouTubePlaylist(request, env);
     }
     if (url.pathname === '/api/oembed') {
       const denied = await requireApp(request, env);

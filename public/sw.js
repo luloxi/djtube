@@ -1,4 +1,4 @@
-const CACHE = 'djtube-v3';
+const CACHE = 'djtube-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

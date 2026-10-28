@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { AUTH_BASE_PATH, CANONICAL_ORIGIN, authIsConfigured } from '../src/lib/access';
+import { AUTH_BASE_PATH, AUTH_HOSTS, CANONICAL_ORIGIN, CUSTOM_ORIGIN, authIsConfigured } from '../src/lib/access';
 import { recordVisitForUserId } from './access-db';
 import type { D1Database } from './d1';
 import { notifyAccessRequest, type NotifyEnv } from './notify';
@@ -44,9 +44,13 @@ export function getAuth(env: AuthEnv) {
     appName: 'DJTube',
     database: db as never,
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: CANONICAL_ORIGIN,
+    baseURL: {
+      allowedHosts: [...AUTH_HOSTS],
+      fallback: CANONICAL_ORIGIN,
+      protocol: 'auto',
+    },
     basePath: AUTH_BASE_PATH,
-    trustedOrigins: [CANONICAL_ORIGIN, 'http://localhost:5173', 'http://localhost:8787'],
+    trustedOrigins: [CANONICAL_ORIGIN, CUSTOM_ORIGIN, 'http://localhost:5173', 'http://localhost:8787'],
     emailAndPassword: { enabled: false },
     socialProviders: {
       google: {

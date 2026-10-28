@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   OWNER_EMAIL,
-  GOOGLE_REDIRECT_URI,
+  AUTH_HOSTS,
+  GOOGLE_REDIRECT_URIS,
   adminActionStatus,
   adminApiDecision,
   adminHttpStatus,
@@ -262,7 +263,19 @@ describe('visit record', () => {
 });
 
 describe('google redirect', () => {
-  it('is the workers.dev callback and nothing else', () => {
-    expect(GOOGLE_REDIRECT_URI).toBe('https://djtube.lucianoolivabianco.workers.dev/api/auth/callback/google');
+  it('is exactly the workers.dev and custom-domain callbacks', () => {
+    expect([...GOOGLE_REDIRECT_URIS]).toEqual([
+      'https://djtube.lucianoolivabianco.workers.dev/api/auth/callback/google',
+      'https://dj.lulox.com.ar/api/auth/callback/google',
+    ]);
+    expect(GOOGLE_REDIRECT_URIS).toHaveLength(2);
+    expect(AUTH_HOSTS.some((host) => host.includes('*'))).toBe(false);
+    expect([...AUTH_HOSTS]).toEqual([
+      'djtube.lucianoolivabianco.workers.dev',
+      'dj.lulox.com.ar',
+      'localhost',
+      'localhost:5173',
+      'localhost:8787',
+    ]);
   });
 });

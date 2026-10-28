@@ -1,4 +1,4 @@
-import { CANONICAL_ORIGIN, isOwnerEmail, OWNER_EMAIL } from '../src/lib/access';
+import { CANONICAL_ORIGIN, CUSTOM_ORIGIN, isOwnerEmail, OWNER_EMAIL } from '../src/lib/access';
 import { vapidKeysReady } from '../src/lib/push-sub';
 import { b64UrlToBytes, bytesToB64Url, encryptPush, pushBody, rawBuffer, vapidJwt } from '../src/lib/webpush';
 import type { D1Database } from './d1';
@@ -31,8 +31,8 @@ export async function notifyApproved(env: NotifyEnv, email: string): Promise<voi
         to: email,
         from: { email: APPROVAL_FROM, name: 'DJTube' },
         subject: 'Acceso',
-        text: `Ya podés entrar.\n${link}\n`,
-        html: `<p>Ya podés entrar.</p><p><a href="${link}">DJTube</a></p>`,
+        text: `Ya podés entrar.\n${link}\n${CUSTOM_ORIGIN}\n`,
+        html: `<p>Ya podés entrar.</p><p><a href="${link}">DJTube</a></p><p><a href="${CUSTOM_ORIGIN}">${CUSTOM_ORIGIN}</a></p>`,
       });
     }
   } catch {

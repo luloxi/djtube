@@ -3,9 +3,22 @@
 export const OWNER_EMAIL = 'lucianoolivabianco@gmail.com';
 
 export const CANONICAL_ORIGIN = 'https://djtube.lucianoolivabianco.workers.dev';
+export const CUSTOM_ORIGIN = 'https://dj.lulox.com.ar';
 export const AUTH_BASE_PATH = '/api/auth';
-/** Exact Google OAuth redirect. Register this URI and no other. */
-export const GOOGLE_REDIRECT_URI = `${CANONICAL_ORIGIN}${AUTH_BASE_PATH}/callback/google`;
+/** Exact hosts Better Auth may use. No wildcards. */
+export const AUTH_HOSTS = [
+  'djtube.lucianoolivabianco.workers.dev',
+  'dj.lulox.com.ar',
+  'localhost',
+  'localhost:5173',
+  'localhost:8787',
+] as const;
+/** Exact Google OAuth redirects. Register these two and no others. */
+export const GOOGLE_REDIRECT_URIS = [
+  `${CANONICAL_ORIGIN}${AUTH_BASE_PATH}/callback/google`,
+  `${CUSTOM_ORIGIN}${AUTH_BASE_PATH}/callback/google`,
+] as const;
+export const GOOGLE_REDIRECT_URI = GOOGLE_REDIRECT_URIS[0];
 
 export const ACCESS_STATUSES = ['pending', 'approved', 'revoked', 'blocked'] as const;
 export type AccessStatus = (typeof ACCESS_STATUSES)[number];

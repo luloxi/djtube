@@ -7,6 +7,7 @@ import { formatTime } from '../lib/format';
 import { loadCues, saveCues } from '../lib/idb';
 import { clamp01, nudgedRate } from '../lib/mixer';
 import { prerollFromState, type PrerollPhase } from '../lib/preload';
+import { discAngle, jogTarget, jogTransport } from '../lib/jog';
 import { loadYouTubeAPI } from '../lib/youtube-api';
 import { BeatGrid } from './BeatGrid';
 import { Icon } from './icons';
@@ -110,6 +111,22 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [cues, setCues] = useState<HotCues>(emptyCues);
   const prerollRef = useRef<PrerollPhase>('idle');
   const longPressRef = useRef<number>(0);
+  const spinRef = useRef<HTMLDivElement>(null);
+  const joggingRef = useRef(false);
+  const jogRef = useRef<{
+    pointerId: number;
+    cx: number;
+    cy: number;
+    lastAngle: number;
+    lastAt: number;
+    origin: number;
+    accum: number;
+    wasPlaying: boolean;
+    rate: number;
+    seekAt: number;
+  } | null>(null);
+  const [disc, setDisc] = useState(false);
+  const [jogging, setJogging] = useState(false);
 
   gainRef.current = gain;
   rateRef.current = playbackRate;
@@ -251,6 +268,116 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       }
     },
   }));
+
+  useEffect(() => {
+    try {
+      setDisc(window.localStorage.getItem(`djtube-disc-${id}`) === '1');
+    } catch {
+      setDisc(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!disc) {
+      if (spinRef.current) spinRef.current.style.transform = '';
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      if (!joggingRef.current && spinRef.current) {
+        let media = 0;
+        try {
+          media = playerRef.current?.getCurrentTime() ?? 0;
+        } catch {
+          media = 0;
+        }
+        spinRef.current.style.transform = `rotate(${discAngle(media)}deg)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [disc]);
+
+  function endJog(pointerId: number) {
+    const jog = jogRef.current;
+    if (!jog || jog.pointerId !== pointerId) return;
+    jogRef.current = null;
+    joggingRef.current = false;
+    setJogging(false);
+    try {
+      playerRef.current?.setPlaybackRate(jog.rate);
+      if (jog.wasPlaying) playerRef.current?.playVideo();
+      else playerRef.current?.pauseVideo();
+    } catch {
+      /* player gone */
+    }
+    onRate(jog.rate);
+  }
+
+  function onJogDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!disc || !videoId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let origin = 0;
+    try {
+      origin = playerRef.current?.getCurrentTime() ?? 0;
+    } catch {
+      origin = 0;
+    }
+    jogRef.current = {
+      pointerId: event.pointerId,
+      cx,
+      cy,
+      lastAngle: Math.atan2(event.clientY - cy, event.clientX - cx),
+      lastAt: performance.now(),
+      origin,
+      accum: 0,
+      wasPlaying: playing,
+      rate: rateRef.current,
+      seekAt: 0,
+    };
+    joggingRef.current = true;
+    setJogging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onJogMove(event: React.PointerEvent<HTMLDivElement>) {
+    const jog = jogRef.current;
+    if (!jog || event.pointerId !== jog.pointerId) return;
+    const angle = Math.atan2(event.clientY - jog.cy, event.clientX - jog.cx);
+    let delta = angle - jog.lastAngle;
+    if (delta > Math.PI) delta -= Math.PI * 2;
+    if (delta < -Math.PI) delta += Math.PI * 2;
+    const now = performance.now();
+    const dt = (now - jog.lastAt) / 1000;
+    jog.lastAngle = angle;
+    jog.lastAt = now;
+    jog.accum += delta;
+    let target = jogTarget(jog.origin, (jog.accum * 180) / Math.PI);
+    try {
+      const length = playerRef.current?.getDuration() ?? 0;
+      if (length > 0.4) target = Math.min(target, Math.max(0, length - 0.05));
+    } catch {
+      target = Math.max(0, target);
+    }
+    if (spinRef.current) spinRef.current.style.transform = `rotate(${discAngle(target)}deg)`;
+    const turnsPerSec = dt > 0.016 ? delta / (Math.PI * 2) / dt : 0;
+    const transport = jogTransport(turnsPerSec, ratesRef.current, jog.rate);
+    if (now - jog.seekAt < 40) return;
+    jog.seekAt = now;
+    try {
+      const player = playerRef.current;
+      if (!player) return;
+      if (transport.pause) player.pauseVideo();
+      else if (player.getPlayerState() !== 1) player.playVideo();
+      if (transport.rate != null) player.setPlaybackRate(transport.rate);
+      player.seekTo(target, true);
+    } catch {
+      /* seek while buffering */
+    }
+  }
 
   useEffect(() => {
     if (!videoId) return;
@@ -457,7 +584,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 
   return (
     <article
-      className={over ? 'deck over' : 'deck'}
+      className={over ? 'deck over' : disc ? 'deck disc-on' : 'deck'}
       data-testid={`deck-${id.toLowerCase()}`}
       data-deck={id}
       data-video-id={videoId ?? ''}
@@ -501,7 +628,18 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         </span>
       </header>
       <div className="deck-top">
-        {videoId ? <div className="video-frame" ref={mountRef} /> : <div className="video-frame empty" />}
+        <div
+          className={disc && videoId ? (jogging ? 'video-frame as-disc jogging' : 'video-frame as-disc') : videoId ? 'video-frame' : 'video-frame empty'}
+          onPointerDown={onJogDown}
+          onPointerMove={onJogMove}
+          onPointerUp={(event) => endJog(event.pointerId)}
+          onPointerCancel={(event) => endJog(event.pointerId)}
+        >
+          <div className="disc-rot" ref={spinRef}>
+            <div className="yt-mount" ref={mountRef} />
+          </div>
+          {disc && videoId ? <div className="disc-hole" aria-hidden="true" /> : null}
+        </div>
         <div className="transport">
           <button
             type="button"
@@ -591,6 +729,27 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             onClick={() => (onAnalyze ? onAnalyze() : window.open('/sync', '_blank', 'noopener'))}
           >
             <Icon name="analyze" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            title="Disco"
+            aria-label="Disco"
+            aria-pressed={disc}
+            disabled={!videoId}
+            onClick={() => {
+              setDisc((on) => {
+                const next = !on;
+                try {
+                  window.localStorage.setItem(`djtube-disc-${id}`, next ? '1' : '0');
+                } catch {
+                  /* ignore */
+                }
+                return next;
+              });
+            }}
+          >
+            <Icon name="disc" />
           </button>
           {onStartSynced ? (
             <button

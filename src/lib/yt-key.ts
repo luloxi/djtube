@@ -1,6 +1,6 @@
 import { normalizeSearchQuery, youtubeFailure } from './quota';
 import { parseDataApiPlaylist, type PlaylistPage } from './playlist';
-import { parseSearchItems, type SearchHit } from './youtube-search';
+import { parseSearchItems, type SearchHit, type SearchKind } from './youtube-search';
 
 /** This browser only. The value is never sent to the DJTube worker. */
 export const YT_KEY_STORAGE = 'djtube-yt-key';
@@ -47,19 +47,19 @@ export type DataRoute =
   | { via: 'server'; url: string; method: 'GET' | 'POST'; body?: string };
 
 /** With a browser key, search goes straight to Google. Otherwise the worker. */
-export function searchRoute(query: string, ownKey: string | null): DataRoute {
+export function searchRoute(query: string, ownKey: string | null, kind: SearchKind = 'video'): DataRoute {
   const q = normalizeSearchQuery(query);
   const key = normalizeApiKey(ownKey ?? '');
   if (key) {
     const url = new URL('https://www.googleapis.com/youtube/v3/search');
     url.searchParams.set('part', 'snippet');
-    url.searchParams.set('type', 'video');
+    url.searchParams.set('type', kind);
     url.searchParams.set('maxResults', '8');
     url.searchParams.set('q', q);
     url.searchParams.set('key', key);
     return { via: 'browser', url: url.toString() };
   }
-  return { via: 'server', url: `/api/search?q=${encodeURIComponent(q)}`, method: 'GET' };
+  return { via: 'server', url: `/api/search?q=${encodeURIComponent(q)}${kind === 'playlist' ? '&type=playlist' : ''}`, method: 'GET' };
 }
 
 export function playlistRoute(playlistId: string, pageToken: string, ownKey: string | null): DataRoute {
@@ -84,19 +84,19 @@ export function playlistRoute(playlistId: string, pageToken: string, ownKey: str
 export type SearchOutcome = { ok: true; items: SearchHit[] } | { ok: false; reason: string; items: [] };
 
 /** Fetches search. Does not log the URL, because a browser key lives in it. */
-export async function fetchSearch(query: string, ownKey: string | null, signal?: AbortSignal): Promise<SearchOutcome> {
-  const route = searchRoute(query, ownKey);
+export async function fetchSearch(query: string, ownKey: string | null, kind: SearchKind = 'video', signal?: AbortSignal): Promise<SearchOutcome> {
+  const route = searchRoute(query, ownKey, kind);
   try {
     const response = await fetch(route.url, { signal, cache: 'no-store' });
     const data = await response.json().catch(() => null);
     if (route.via === 'browser') {
       const failure = youtubeFailure(response.status, data);
       if (failure) return { ok: false, reason: failure === 'invalid' ? 'invalid' : failure, items: [] };
-      return { ok: true, items: parseSearchItems(data) };
+      return { ok: true, items: parseSearchItems(data, kind) };
     }
     const row = data && typeof data === 'object' ? (data as { ok?: boolean; reason?: string; items?: unknown }) : null;
     if (!row?.ok) return { ok: false, reason: row?.reason || 'upstream', items: [] };
-    return { ok: true, items: parseSearchItems({ items: row.items }) };
+    return { ok: true, items: parseSearchItems({ items: row.items }, kind) };
   } catch {
     return { ok: false, reason: 'upstream', items: [] };
   }

@@ -583,6 +583,7 @@ export function App({
                 setKeyOpen(true);
               }}
               onLimited={explainLimit}
+              onAddPlaylist={(id) => void addWholePlaylist(id)}
             />
           </div>
         </aside>

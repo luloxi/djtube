@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import type { DeckId, Track } from '../types';
 import { parseYouTubeUrl } from '../lib/youtube';
 import { fetchSearch } from '../lib/yt-key';
+import type { SearchKind } from '../lib/youtube-search';
+import { decodeEntities } from '../lib/html-text';
 import { Icon } from './icons';
 import { TrackRow } from './Library';
 
-type Item = Track & { channel?: string };
+type Item = Track & { channel?: string; playlistId?: string };
 
 const LIMIT = 'Llegaste al tope de búsquedas de hoy.';
 const QUOTA = 'La clave compartida se quedó sin cupo hoy.';
@@ -16,16 +18,19 @@ export function SearchBox({
   onYouTube,
   onOpenKey,
   onLimited,
+  onAddPlaylist,
 }: {
   ownKey: string | null;
   onLoad: (track: Track, deck: DeckId) => void;
   onYouTube: (raw: string) => void;
   onOpenKey: () => void;
   onLimited: (reason: 'limit' | 'quota') => void;
+  onAddPlaylist: (playlistId: string) => void;
 }) {
   const [mode, setMode] = useState<'loading' | 'ready' | 'nokey' | 'down'>('loading');
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<Item[]>([]);
+  const [kind, setKind] = useState<SearchKind>('video');
   const [note, setNote] = useState('');
   const [help, setHelp] = useState<'limit' | 'quota' | null>(null);
 
@@ -60,6 +65,14 @@ export function SearchBox({
     onYouTube(raw);
   }
 
+  function switchKind(next: SearchKind) {
+    if (next === kind) return;
+    setKind(next);
+    setItems([]);
+    setNote('');
+    setHelp(null);
+  }
+
   async function search(event: React.FormEvent) {
     event.preventDefault();
     const q = query.trim();
@@ -76,7 +89,7 @@ export function SearchBox({
     }
     setNote('');
     setHelp(null);
-    const data = await fetchSearch(q, ownKey);
+    const data = await fetchSearch(q, ownKey, kind);
     if (!data.ok && (data.reason === 'limit' || data.reason === 'quota')) {
       setHelp(data.reason);
       setItems([]);
@@ -125,6 +138,14 @@ export function SearchBox({
           data-testid="search-hint"
           enterKeyHint="search"
         />
+        <div className="kind-toggle" role="group" aria-label="Tipo">
+          <button type="button" className="icon-button tone-play" aria-pressed={kind === 'video'} aria-label="Videos" title="Videos" data-testid="kind-video" onClick={() => switchKind('video')}>
+            <Icon name="play" size={18} />
+          </button>
+          <button type="button" className="icon-button tone-queue" aria-pressed={kind === 'playlist'} aria-label="Playlists" title="Playlists" data-testid="kind-playlist" onClick={() => switchKind('playlist')}>
+            <Icon name="playlist" size={18} />
+          </button>
+        </div>
         <button type="submit" className="icon-button tone-search search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar">
           <Icon name="search" />
         </button>
@@ -149,10 +170,31 @@ export function SearchBox({
         <p className="hint">Sin búsqueda</p>
       ) : null}
       <div className="list">
-        {items.map((item) => (
-          <TrackRow key={item.videoId} track={item} onLoad={onLoad} />
-        ))}
+        {items.map((item) =>
+          item.playlistId ? (
+            <PlaylistRow key={item.playlistId} item={item} onAdd={onAddPlaylist} />
+          ) : (
+            <TrackRow key={item.videoId} track={item} onLoad={onLoad} />
+          ),
+        )}
       </div>
     </section>
+  );
+}
+
+function PlaylistRow({ item, onAdd }: { item: Item; onAdd: (playlistId: string) => void }) {
+  const title = decodeEntities(item.title);
+  const id = item.playlistId ?? '';
+  return (
+    <div className="pl-row" data-testid="playlist-row">
+      {item.thumbnail ? <img src={item.thumbnail} alt="" /> : <span className="thumb" />}
+      <p className="pl-name" title={title}>
+        <span>{title}</span>
+        {item.channel ? <small>{decodeEntities(item.channel)}</small> : null}
+      </p>
+      <button type="button" className="icon-button tone-queue" aria-label={`Agregar playlist: ${title}`} title="Agregar a la cola" data-testid="playlist-add" onClick={() => onAdd(id)}>
+        <Icon name="plus" size={20} />
+      </button>
+    </div>
   );
 }

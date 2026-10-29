@@ -18,6 +18,19 @@ function memory() {
   };
 }
 
+describe('playlist search', () => {
+  it('asks the worker for playlists only when playlists are chosen', () => {
+    expect(searchRoute('hola', null, 'playlist').url).toBe('/api/search?q=hola&type=playlist');
+    expect(searchRoute('hola', null, 'video').url).toBe('/api/search?q=hola');
+  });
+
+  it('asks Google for type=playlist with a browser key', () => {
+    const route = searchRoute('hola', KEY, 'playlist');
+    expect(route.via).toBe('browser');
+    expect(new URL(route.url).searchParams.get('type')).toBe('playlist');
+  });
+});
+
 describe('bring your own YouTube key', () => {
   it('sends search to the worker when this browser has no key', () => {
     const route = searchRoute('  Hola   Mundo ', null);

@@ -1548,3 +1548,12 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 .confirm-sheet { width: min(260px, 100%); align-items: center; text-align: center; }
 .confirm-sheet p { margin: 8px 0 0; font-size: 15px; }
 .confirm-actions { display: flex; gap: 24px; justify-content: center; }
+.kind-toggle { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
+.kind-toggle .icon-button[aria-pressed="true"] { filter: drop-shadow(0 0 2px var(--neon)) drop-shadow(0 0 9px var(--neon-glow)); opacity: 1; }
+.kind-toggle .icon-button[aria-pressed="false"] { opacity: 0.45; }
+.kind-toggle .icon-button[aria-pressed="false"]:hover { opacity: 0.9; }
+.pl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 2px; }
+.pl-row img, .pl-row .thumb { width: 56px; height: 32px; object-fit: cover; background: #000; }
+.pl-name { margin: 0; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.pl-name span, .pl-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-name small { color: var(--muted); font-size: 11px; }

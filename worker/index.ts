@@ -237,7 +237,8 @@ async function search(request: Request, url: URL, env: Env): Promise<Response> {
   const q = normalizeSearchQuery(url.searchParams.get('q') ?? '');
   if (!q) return json({ ok: true, items: [] });
 
-  const cacheId = `search:${q}`;
+  const kind = url.searchParams.get('type') === 'playlist' ? 'playlist' : 'video';
+  const cacheId = kind === 'playlist' ? `search:playlist:${q}` : `search:${q}`;
   const cached = await readCachedJson(cacheId);
   if (cached && typeof cached === 'object' && (cached as { ok?: boolean }).ok === true) return json(cached);
 
@@ -247,7 +248,7 @@ async function search(request: Request, url: URL, env: Env): Promise<Response> {
 
   const endpoint = new URL('https://www.googleapis.com/youtube/v3/search');
   endpoint.searchParams.set('part', 'snippet');
-  endpoint.searchParams.set('type', 'video');
+  endpoint.searchParams.set('type', kind);
   endpoint.searchParams.set('maxResults', '8');
   endpoint.searchParams.set('q', q);
   endpoint.searchParams.set('key', env.YT_API_KEY);
@@ -259,7 +260,7 @@ async function search(request: Request, url: URL, env: Env): Promise<Response> {
     const failure = youtubeFailure(upstream.status, data);
     if (failure === 'quota') return json({ ok: false, reason: 'quota', items: [] }, 429);
     if (!upstream.ok || failure) return json({ ok: false, reason: 'upstream', items: [] });
-    const body = { ok: true, items: parseSearchItems(data) };
+    const body = { ok: true, items: parseSearchItems(data, kind) };
     await writeCachedJson(cacheId, body, SEARCH_CACHE_SECONDS);
     return json(body);
   } catch {

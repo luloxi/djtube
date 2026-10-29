@@ -13,6 +13,7 @@ export type IconName =
   | 'download'
   | 'search'
   | 'queue'
+  | 'playlist'
   | 'upload'
   | 'trash'
   | 'user'
@@ -85,6 +86,14 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="M3 6h.01" />
       <path d="M3 12h.01" />
       <path d="M3 18h.01" />
+    </>
+  ),
+  playlist: (
+    <>
+      <path d="M3 6h13" />
+      <path d="M3 12h9" />
+      <path d="M3 18h7" />
+      <path d="M15 12v8l6-4z" />
     </>
   ),
   upload: (

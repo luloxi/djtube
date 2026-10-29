@@ -11,11 +11,14 @@ type Props = {
   onScrub: (phase: 'start' | 'move' | 'end', seconds: number) => void;
 };
 
+/** Pixels a finger must travel sideways on the timeline before it starts scrubbing. */
+const TOUCH_SLOP = 10;
+
 export function Waveform({ peaks, duration, time, color, progress, onScrub }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
   const scrubRef = useRef(onScrub);
-  const dragRef = useRef<{ pointerId: number; last: number } | null>(null);
+  const dragRef = useRef<{ pointerId: number; last: number; started: boolean; x0: number } | null>(null);
   scrubRef.current = onScrub;
 
   const peaksRef = useRef(peaks);
@@ -99,6 +102,8 @@ export function Waveform({ peaks, duration, time, color, progress, onScrub }: Pr
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
+    // A touch that never turned into a drag was a tap: it must not move the song.
+    if (!drag.started) return;
     scrubRef.current('end', event.type === 'pointercancel' ? drag.last : secondsAt(event));
   }
 
@@ -113,13 +118,20 @@ export function Waveform({ peaks, duration, time, color, progress, onScrub }: Pr
           event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           const seconds = secondsAt(event);
-          dragRef.current = { pointerId: event.pointerId, last: seconds };
-          scrubRef.current('start', seconds);
+          // Mouse scrubs on press. Touch needs a deliberate sideways drag, so a stray tap can't wreck the mix.
+          const deliberate = event.pointerType === 'touch';
+          dragRef.current = { pointerId: event.pointerId, last: seconds, started: !deliberate, x0: event.clientX };
+          if (!deliberate) scrubRef.current('start', seconds);
         }}
         onPointerMove={(event) => {
           const drag = dragRef.current;
           if (!drag || drag.pointerId !== event.pointerId) return;
           drag.last = secondsAt(event);
+          if (!drag.started) {
+            if (Math.abs(event.clientX - drag.x0) < TOUCH_SLOP) return;
+            drag.started = true;
+            scrubRef.current('start', drag.last);
+          }
           scrubRef.current('move', drag.last);
         }}
         onPointerUp={finish}

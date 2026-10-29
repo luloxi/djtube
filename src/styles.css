@@ -1724,3 +1724,41 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 
 .pl-row .pl-plus { grid-area: plus; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--neon); }
 .pl-row .pl-plus:disabled { cursor: not-allowed; }
+
+/* Deck controls: default (desktop) the two groups flatten into the one row under the disc. */
+.ctl-l { display: contents; }
+
+/* Phones: controls sit beside the disc in two tight columns, centered on it, so a thumb aiming at them
+   can't land on the timeline underneath. Left: play over restart. Right: + over the speed readout over −. */
+@media (max-width: 1023px) {
+  .deck .deck-top { flex-direction: row; align-items: stretch; gap: 4px; padding: 0 4px; }
+  .deck .transport { display: contents; }
+  .deck .deck-top .ctl-l,
+  .deck .deck-top .transport .rate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 0 0 48px;
+    width: 48px;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+  }
+  .deck .deck-top .ctl-l { order: 1; }
+  .deck .deck-top .transport .rate { order: 3; flex-direction: column-reverse; }
+  .deck .video-slot { order: 2; flex: 1 1 auto; align-items: center; }
+  .deck .deck-top .ctl-l .icon-button,
+  .deck .deck-top .transport .rate .rate-step,
+  .deck .deck-top .transport .rate .rate-value {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    flex: none;
+  }
+  /* A clear gap above the timeline. */
+  .deck .wave-wrap { margin-top: 10px; }
+}

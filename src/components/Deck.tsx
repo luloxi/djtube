@@ -910,6 +910,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           </div>
         </div>
         <div className="transport" data-testid={`transport-${id.toLowerCase()}`}>
+          <div className="ctl-l">
           <button
             type="button"
             className={reconnecting ? 'icon-button play-btn tone-play is-reconnecting' : 'icon-button play-btn tone-play'}
@@ -933,6 +934,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
           >
             <Icon name="cue" />
           </button>
+          </div>
           <RateControl rate={playbackRate} rates={rates} disabled={!videoId} onRate={onRate} deck={id} />
         </div>
       </div>

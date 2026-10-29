@@ -29,7 +29,7 @@ export function SearchBox({
   onYouTube: (raw: string) => void;
   onOpenKey: () => void;
   onLimited: (reason: 'limit' | 'quota') => void;
-  onAddPlaylist: (playlistId: string, deck: DeckId) => void;
+  onAddPlaylist: (playlistId: string, deck?: DeckId) => void;
 }) {
   const [mode, setMode] = useState<'loading' | 'ready' | 'nokey' | 'down'>('loading');
   const [query, setQuery] = useState('');
@@ -236,7 +236,7 @@ export function SearchBox({
   );
 }
 
-function PlaylistRow({ item, onAdd }: { item: Item; onAdd: (playlistId: string, deck: DeckId) => void }) {
+function PlaylistRow({ item, onAdd }: { item: Item; onAdd: (playlistId: string, deck?: DeckId) => void }) {
   const title = decodeEntities(item.title);
   const id = item.playlistId ?? '';
   return (
@@ -249,6 +249,9 @@ function PlaylistRow({ item, onAdd }: { item: Item; onAdd: (playlistId: string, 
         <span>{title}</span>
         {item.channel ? <small>{decodeEntities(item.channel)}</small> : null}
       </p>
+      <button type="button" className="track-add pl-plus tone-add" aria-label={`Agregar todo a la cola: ${title}`} title="Agregar todo a la cola" data-testid="playlist-add" onClick={() => onAdd(id)}>
+        <Icon name="plus" size={20} />
+      </button>
       <button type="button" className="track-add track-add-b" aria-label={`Playlist en deck B: ${title}`} title="B: primer tema al deck B, el resto a la cola" data-testid="playlist-b" onClick={() => onAdd(id, 'B')}>
         B
       </button>

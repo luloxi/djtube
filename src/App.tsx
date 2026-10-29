@@ -461,17 +461,27 @@ export function App({
     const queued = new Set(libraryRef.current.map((item) => item.videoId));
     let added = 0;
     let deckLoaded = false;
+    // A or B always puts the playlist's first track on that deck, even when it is already in the queue.
+    const loadFirst = (item: PlaylistItem | undefined) => {
+      if (!deck || deckLoaded || !item) return;
+      deckLoaded = true;
+      void loadInto(deck, playlistItemToTrack(item));
+    };
     const take = (items: PlaylistItem[]) => {
       if (gen !== playlistGen.current || !items.length) return;
       added += items.length;
       appendTracks(items);
-      if (deck && !deckLoaded) {
-        deckLoaded = true;
-        void loadInto(deck, playlistItemToTrack(items[0]));
-      }
     };
     try {
-      added = await walkPlaylistPages((token) => fetchPlaylistPage(playlistId, token, undefined, ownKey), queued, take);
+      added = await walkPlaylistPages(
+        async (token) => {
+          const page = await fetchPlaylistPage(playlistId, token, undefined, ownKey);
+          if (token === null && gen === playlistGen.current) loadFirst(takeNewPlaylistItems(page.items ?? [], new Set<string>())[0]);
+          return page;
+        },
+        queued,
+        take,
+      );
     } catch (error) {
       if (gen !== playlistGen.current) return;
       const reason = error instanceof Error ? error.message : '';
@@ -488,6 +498,7 @@ export function App({
             ids.map((id) => ({ videoId: id, title: id, thumbnail: null })),
             queued,
           );
+          loadFirst(fresh[0]);
           take(fresh);
           void enrichTracks(
             fresh.map((item) => item.videoId),
@@ -504,7 +515,7 @@ export function App({
     }
     if (gen !== playlistGen.current) return;
     setPlaylistLoading(false);
-    setStatus(`${added} temas agregados`);
+    setStatus(added ? `${added} temas agregados` : 'Ya estaban en la cola');
   }
 
   function onYouTube(raw: string) {

@@ -466,6 +466,7 @@ h2 {
 .tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
 /* Navigation: none of these share a hue with deck A (teal) or deck B (amber). */
 .tone-danger { --neon: #ff3b3b; --neon-glow: rgba(255, 59, 59, 0.9); }
+.tone-add { --neon: #00e5ff; --neon-glow: rgba(0, 229, 255, 0.9); }
 .tone-queue { --neon: #4d8dff; --neon-glow: rgba(77, 141, 255, 0.9); }
 .tone-search { --neon: #ff4d5e; --neon-glow: rgba(255, 77, 94, 0.9); }
 
@@ -1342,7 +1343,7 @@ button.text-link:hover:not(:disabled) {
   .deck[data-deck="A"] { box-shadow: inset 0 3px 0 var(--teal); }
   .deck[data-deck="B"] { box-shadow: inset 0 3px 0 var(--amber); }
 
-  .track, .pl-row {
+  .track {
     grid-template-columns: var(--hit) 56px minmax(0, 1fr) var(--hit);
     grid-template-areas: "a thumb name b";
     gap: 4px;
@@ -1623,7 +1624,7 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 .confirm-sheet { width: min(260px, 100%); align-items: center; text-align: center; }
 .confirm-sheet p { margin: 8px 0 0; font-size: 15px; }
 .confirm-actions { display: flex; gap: 24px; justify-content: center; }
-.pl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto; grid-template-areas: "thumb name a b"; gap: 6px; align-items: center; padding: 2px; }
+.pl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto auto; grid-template-areas: "thumb name plus a b"; gap: 6px; align-items: center; padding: 2px; }
 .pl-row img, .pl-row .thumb { grid-area: thumb; }
 .pl-row .pl-name { grid-area: name; }
 .pl-row img, .pl-row .thumb { width: 56px; height: 32px; object-fit: cover; background: #000; }
@@ -1706,3 +1707,6 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
   50% { opacity: 1; filter: drop-shadow(0 0 3px var(--neon)) drop-shadow(0 0 10px var(--neon-glow)); }
 }
 @media (prefers-reduced-motion: reduce) { .play-btn.is-reconnecting { animation: none; opacity: 0.7; } }
+
+.pl-row .pl-plus { grid-area: plus; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--neon); }
+.pl-row .pl-plus:disabled { cursor: not-allowed; }

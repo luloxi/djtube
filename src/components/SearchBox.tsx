@@ -61,6 +61,7 @@ export function SearchBox({
     };
   }, [ownKey]);
 
+  const inputRef = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
   const lastKey = useRef('');
   const timer = useRef<number | null>(null);
@@ -145,12 +146,31 @@ export function SearchBox({
     else disarm();
   }
 
+  /** Synchronous, inside the tap, so a phone raises its keyboard. Selecting leaves the text ready to be typed over. */
+  function focusField() {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(0, input.value.length);
+  }
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const q = query.trim();
-    if (!q) return;
+    if (!q) {
+      // Nothing to search: take the user to the field instead.
+      disarm();
+      focusField();
+      return;
+    }
     if (parseYouTubeUrl(q)) {
       takeUrl(q);
+      return;
+    }
+    if (`${kind}:${normalizeSearchQuery(q)}` === lastKey.current) {
+      // Same term, same mode: keep the results and the quota, and get ready for a new term.
+      disarm();
+      focusField();
       return;
     }
     void runSearch(q, kind);
@@ -166,8 +186,6 @@ export function SearchBox({
     timer.current = window.setTimeout(() => void runSearch(value, kind), AUTO_SEARCH_MS);
   }
 
-  const looksLikeUrl = Boolean(parseYouTubeUrl(query));
-  const canSearch = mode === 'ready' || looksLikeUrl;
   const helpText = help === 'limit' ? LIMIT : help === 'quota' ? QUOTA : '';
 
   return (
@@ -175,6 +193,7 @@ export function SearchBox({
       <form className="search-form" onSubmit={submit}>
         <div className="search-field">
           <input
+            ref={inputRef}
             type="search"
             placeholder="URL o búsqueda"
             value={query}
@@ -191,7 +210,7 @@ export function SearchBox({
           />
           {armed ? <span className="search-timer" key={query} data-testid="search-timer" aria-hidden="true" style={{ animationDuration: `${AUTO_SEARCH_MS}ms` }} /> : null}
         </div>
-        <button type="submit" className="icon-button tone-search search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar" data-testid="search-go">
+        <button type="submit" className="icon-button tone-search search-go" aria-label="Buscar" title="Buscar" data-testid="search-go">
           <Icon name="search" />
         </button>
         <div className="kind-switch" role="radiogroup" aria-label="Qué buscar" data-kind={kind} title="Videos o playlists">

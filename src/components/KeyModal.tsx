@@ -1,37 +1,102 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
+import { keyShapeProblem, normalizeApiKey, testOwnKey, type KeyTestResult } from '../lib/yt-key';
 
 const CLOUD = 'https://console.cloud.google.com';
 
 type Props = {
   hasKey: boolean;
+  savedKey: string | null;
   onSave: (raw: string) => boolean;
   onClear: () => void;
   onClose: () => void;
 };
 
-export function KeyModal({ hasKey, onSave, onClear, onClose }: Props) {
+function Ext({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+}
+
+function Step({ n, title, open, children }: { n: number; title: string; open?: boolean; children: ReactNode }) {
+  return (
+    <details className="key-step" open={open}>
+      <summary>
+        <span className="key-n">{n}</span>
+        <span>{title}</span>
+      </summary>
+      <div className="key-step-body">{children}</div>
+    </details>
+  );
+}
+
+const HINTS: Record<Exclude<KeyTestResult, 'ok'>, string> = {
+  invalid: 'Google no reconoce esta clave. Revisá que la copiaste completa (empieza con AIza) y que es una clave de API, no un ID de cliente OAuth.',
+  disabled: 'La clave existe, pero falta habilitar YouTube Data API v3 en ese proyecto (paso 3). Si la habilitaste recién, esperá un minuto y probá de nuevo.',
+  referrer: 'La clave está limitada a otros sitios web. En Credenciales, abrila y en «Restricciones de la aplicación» agregá este sitio o elegí «Ninguna».',
+  blocked: 'La clave está limitada a otras APIs. En Credenciales, abrila y en «Restricciones de la API» marcá YouTube Data API v3.',
+  quota: 'Se agotó la cuota de hoy de esta clave. Se renueva a medianoche, hora del Pacífico.',
+  network: 'No pude conectar con Google. Revisá tu conexión y probá de nuevo.',
+  other: 'Google devolvió un error que no reconozco. Probá de nuevo en un rato.',
+};
+
+export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) {
   const [raw, setRaw] = useState('');
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const alive = useRef(true);
 
   useEffect(() => {
+    alive.current = true;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      alive.current = false;
+      window.removeEventListener('keydown', onKey);
+    };
   }, [onClose]);
+
+  function problem(): string | null {
+    const kind = keyShapeProblem(raw);
+    if (kind === 'oauth') return 'Eso es un ID de cliente OAuth. Necesitás una clave de API: empieza con AIza.';
+    if (kind === 'shape') return 'No parece una clave de API de YouTube. Tiene que empezar con AIza.';
+    return null;
+  }
 
   function save(event: React.FormEvent) {
     event.preventDefault();
-    if (!onSave(raw)) {
-      setNote('No parece una clave de YouTube.');
+    const bad = problem();
+    if (bad || !onSave(raw)) {
+      setNote({ ok: false, text: bad ?? 'No parece una clave de API de YouTube.' });
       return;
     }
     setRaw('');
-    setNote('');
+    setNote(null);
     onClose();
+  }
+
+  async function probe() {
+    const bad = problem();
+    if (bad) {
+      setNote({ ok: false, text: bad });
+      return;
+    }
+    const key = normalizeApiKey(raw) ?? savedKey;
+    if (!key) {
+      setNote({ ok: false, text: 'Pegá una clave para probarla.' });
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const result = await testOwnKey(key);
+    if (!alive.current) return;
+    setBusy(false);
+    setNote(result === 'ok' ? { ok: true, text: 'Funciona. La clave es válida y YouTube Data API v3 está activa.' } : { ok: false, text: HINTS[result] });
   }
 
   return createPortal(
@@ -45,32 +110,46 @@ export function KeyModal({ hasKey, onSave, onClear, onClose }: Props) {
         </div>
         <h2 id="usa-tu-clave">Usá tu propia clave</h2>
         <div className="key-help">
-          <p>La clave queda solo en este navegador. No se envía a DJTube ni se anota en ningún log.</p>
-          <ol>
-            <li>
-              Creá un proyecto en <a href={`${CLOUD}/projectcreate`} target="_blank" rel="noopener noreferrer">Google Cloud</a>.
-            </li>
-            <li>
-              Activá <a href={`${CLOUD}/apis/library/youtube.googleapis.com`} target="_blank" rel="noopener noreferrer">YouTube Data API v3</a>.
-            </li>
-            <li>
-              Creá una clave en <a href={`${CLOUD}/apis/credentials`} target="_blank" rel="noopener noreferrer">Credenciales</a>.
-            </li>
-            <li>
-              Restringila a YouTube Data API v3 y al referrer HTTP <code>https://dj.lulox.com.ar/*</code>.
-            </li>
-            <li>Pegala acá.</li>
-          </ol>
-          <p>Es gratis. La cuota diaria es tuya: 10.000 unidades. Cada búsqueda cuesta 100.</p>
+          <p className="key-warn" data-testid="key-warn">
+            Necesitás una <strong>clave de API</strong> (API key), <strong>NO</strong> un ID de cliente OAuth.
+          </p>
+          <p>
+            Es gratis y no hace falta tarjeta. Con tu clave buscás sin el límite compartido: Google da unas 100 búsquedas por día por proyecto (cada una cuesta 100 de las 10.000 unidades diarias). Se renueva a medianoche, hora del Pacífico.
+          </p>
+          <div className="key-steps" data-testid="key-steps">
+            <Step n={1} title="Entrá a Google Cloud" open>
+              Abrí <Ext href={`${CLOUD}/`}>Google Cloud Console</Ext> e iniciá sesión con tu cuenta de Google (una de Gmail sirve). Si te pide aceptar los términos, aceptalos.
+            </Step>
+            <Step n={2} title="Creá un proyecto nuevo">
+              Arriba, al lado del logo «Google Cloud», tocá el selector de proyectos. En la ventana tocá «Proyecto nuevo» (New project). Poné de nombre <code>DJTube</code> y tocá «Crear» (Create). Cuando termine, abrí otra vez el selector y elegí DJTube: arriba tiene que decir DJTube. También podés ir directo a <Ext href={`${CLOUD}/projectcreate`}>crear proyecto</Ext>.
+            </Step>
+            <Step n={3} title="Habilitá YouTube Data API v3">
+              Abrí <Ext href={`${CLOUD}/apis/library/youtube.googleapis.com`}>YouTube Data API v3</Ext> con DJTube seleccionado y tocá el botón azul «Habilitar» (Enable). Si dice «Administrar», ya estaba habilitada.
+            </Step>
+            <Step n={4} title="Creá la clave de API">
+              Abrí <Ext href={`${CLOUD}/apis/credentials`}>Credenciales</Ext>. Tocá «+ Crear credenciales» (Create credentials) y elegí <strong>«Clave de API»</strong> (API key).
+              <span className="key-warn-inline">No elijas «ID de cliente de OAuth». Si te pide configurar la pantalla de consentimiento, elegiste la opción equivocada: cerrala y elegí «Clave de API».</span>
+            </Step>
+            <Step n={5} title="Restringila a YouTube (recomendado)">
+              En el panel que se abre, en «Restricciones de la API» elegí «Restringir clave», abrí la lista, marcá «YouTube Data API v3» y tocá «Aceptar». Google suele exigir este paso para crear la clave. Opcional: en «Restricciones de la aplicación» elegí «Sitios web» y agregá <code>https://{window.location.host}/*</code>. Después tocá «Crear».
+            </Step>
+            <Step n={6} title="Copiá la clave">
+              Aparece un cuadro con un texto largo que empieza con <code>AIza</code>. Tocá el ícono de copiar. Si lo cerraste, entrá a <Ext href={`${CLOUD}/apis/credentials`}>Credenciales</Ext>, tocá el nombre de la clave y «Mostrar clave».
+            </Step>
+            <Step n={7} title="Pegala acá y guardala">
+              Pegá la clave abajo y tocá «Guardar». Si querés comprobar que anda, tocá «Probar» antes.
+            </Step>
+          </div>
+          <p className="key-privacy">La clave queda solo en este navegador. No se envía a DJTube ni se anota en ningún log.</p>
         </div>
-        {hasKey ? <p className="hint">Hay una clave guardada en este navegador.</p> : null}
         <form className="key-form" onSubmit={save}>
+          {hasKey ? <p className="hint key-saved">Hay una clave guardada en este navegador.</p> : null}
           <input
             type="password"
             value={raw}
             onChange={(event) => {
               setRaw(event.target.value);
-              setNote('');
+              setNote(null);
             }}
             placeholder="AIza…"
             aria-label="Clave de YouTube Data API"
@@ -79,25 +158,44 @@ export function KeyModal({ hasKey, onSave, onClear, onClose }: Props) {
             spellCheck={false}
             data-testid="yt-key-input"
           />
-          <button type="submit" className="icon-button tone-key" aria-label="Guardar clave" title="Guardar clave" disabled={!raw.trim()}>
-            <Icon name="check" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Quitar clave"
-            title="Quitar clave"
-            disabled={!hasKey}
-            onClick={() => {
-              onClear();
-              setRaw('');
-              setNote('');
-            }}
-          >
-            <Icon name="trash" />
-          </button>
+          <div className="key-actions">
+            <button type="submit" className="key-btn tone-key" data-testid="yt-key-save" title="Guardar clave" disabled={!raw.trim()}>
+              <Icon name="check" size={16} />
+              <span>Guardar</span>
+            </button>
+            <button
+              type="button"
+              className="key-btn tone-play"
+              data-testid="yt-key-test"
+              title="Probar la clave con Google"
+              disabled={busy || (!raw.trim() && !savedKey)}
+              onClick={() => void probe()}
+            >
+              <Icon name="search" size={16} />
+              <span>{busy ? 'Probando…' : 'Probar'}</span>
+            </button>
+            <button
+              type="button"
+              className="key-btn tone-danger"
+              data-testid="yt-key-clear"
+              title="Borrar la clave de este navegador"
+              disabled={!hasKey}
+              onClick={() => {
+                onClear();
+                setRaw('');
+                setNote(null);
+              }}
+            >
+              <Icon name="trash" size={16} />
+              <span>Borrar clave</span>
+            </button>
+          </div>
+          {note ? (
+            <p className={note.ok ? 'key-note is-ok' : 'key-note is-bad'} role="status" data-testid="yt-key-result">
+              {note.text}
+            </p>
+          ) : null}
         </form>
-        {note ? <p className="hint">{note}</p> : null}
       </div>
     </div>,
     document.body,

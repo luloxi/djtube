@@ -70,15 +70,21 @@ Si se acaba el cupo de la persona o el de la clave compartida, la app lo dice y 
 
 ## Usá tu propia clave
 
-El icono de la llave abre una hoja (se cierra con la X, un clic afuera o Escape). La clave de YouTube Data API v3 queda solo en este navegador (`localStorage`, `djtube-yt-key`). Con ella puesta, búsqueda y páginas de playlist van directo a `googleapis.com`. No se envía al servidor de DJTube y no se escribe en un log. Hay un botón para quitarla.
+Se abre desde **Conseguir clave** en la introducción, desde **Clave de YouTube** en el menú de usuario (con o sin sesión) y desde el aviso «Usá tu propia clave» de Buscar: es la misma hoja en los tres lugares (se cierra con la X, un clic afuera o Escape; scrollea y nunca es más grande que la pantalla). Trae una guía paso a paso, con los pasos plegables y enlaces que abren en pestaña nueva. La clave de YouTube Data API v3 queda solo en este navegador (`localStorage`, `djtube-yt-key`). Con ella puesta, búsqueda y páginas de playlist van directo a `googleapis.com`. No se envía al servidor de DJTube y no se escribe en un log.
 
-1. Creá un proyecto en [Google Cloud](https://console.cloud.google.com/projectcreate).
-2. Activá [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com).
-3. Creá una clave en [Credenciales](https://console.cloud.google.com/apis/credentials).
-4. Restringila a YouTube Data API v3 y al referrer HTTP `https://dj.lulox.com.ar/*`.
-5. Pegala en la hoja.
+**Necesitás una clave de API (API key), NO un ID de cliente OAuth.**
 
-Es gratis. La cuota diaria es tuya: 10.000 unidades. Cada búsqueda cuesta 100.
+1. **Entrá a Google Cloud.** Abrí [Google Cloud Console](https://console.cloud.google.com/) con tu cuenta de Google (una de Gmail sirve) y aceptá los términos si te los pide.
+2. **Creá un proyecto nuevo.** Arriba, al lado del logo «Google Cloud», tocá el selector de proyectos, «Proyecto nuevo» (New project), nombre `DJTube`, «Crear» (Create). Después elegí DJTube en el selector. Atajo: [crear proyecto](https://console.cloud.google.com/projectcreate).
+3. **Habilitá YouTube Data API v3.** Abrí [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) con DJTube seleccionado y tocá «Habilitar» (Enable). Si dice «Administrar», ya estaba.
+4. **Creá la clave de API.** En [Credenciales](https://console.cloud.google.com/apis/credentials): «+ Crear credenciales» (Create credentials), «Clave de API» (API key). No elijas «ID de cliente de OAuth»: si te pide configurar la pantalla de consentimiento, elegiste mal.
+5. **Restringila a YouTube (recomendado).** En «Restricciones de la API» elegí «Restringir clave», marcá «YouTube Data API v3» y «Aceptar» (Google suele exigirlo). Opcional: en «Restricciones de la aplicación», «Sitios web», agregá `https://dj.lulox.com.ar/*`. Después «Crear».
+6. **Copiá la clave** (empieza con `AIza`). Si cerraste el cuadro: Credenciales, el nombre de la clave, «Mostrar clave».
+7. **Pegala en la hoja y tocá Guardar.**
+
+La hoja tiene **Guardar**, **Probar** (una llamada barata, `videos.list`, 1 unidad, directo del navegador a Google; muestra si anda o la causa: clave no válida o ID de OAuth, API sin habilitar, clave limitada a otros sitios o a otras APIs, cuota agotada, sin conexión) y **Borrar clave**.
+
+Es gratis y no hace falta tarjeta. Por defecto Google da unas 100 búsquedas por día por proyecto (cada una cuesta 100 de las 10.000 unidades diarias); se renueva a medianoche, hora del Pacífico.
 
 ## Desarrollo
 

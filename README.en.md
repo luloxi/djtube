@@ -57,15 +57,21 @@ When the person's limit or the shared quota runs out, the app says so and offers
 
 ## Bring your own key
 
-The key icon opens a sheet (X, a click outside, or Escape closes it). A YouTube Data API v3 key stays only in this browser (`localStorage`, `djtube-yt-key`). With it set, search and playlist pages go straight to `googleapis.com`. It is never sent to the DJTube server and never written to a log. There is a button to remove it.
+It opens from **Conseguir clave** in the intro, from **Clave de YouTube** in the user menu (signed in or out) and from the “Usá tu propia clave” hint in Buscar: the same sheet in all three places (X, a click outside, or Escape closes it; it scrolls and is never taller than the screen). It carries a step-by-step guide with collapsible steps and links that open in a new tab. A YouTube Data API v3 key stays only in this browser (`localStorage`, `djtube-yt-key`). With it set, search and playlist pages go straight to `googleapis.com`. It is never sent to the DJTube server and never written to a log.
 
-1. Create a project in [Google Cloud](https://console.cloud.google.com/projectcreate).
-2. Enable [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com).
-3. Create a key in [Credentials](https://console.cloud.google.com/apis/credentials).
-4. Restrict it to YouTube Data API v3 and the HTTP referrer `https://dj.lulox.com.ar/*`.
-5. Paste it into the sheet.
+**You need an API key, NOT an OAuth client ID.**
 
-It is free. The daily quota is yours: 10,000 units. A search costs 100.
+1. **Sign in to Google Cloud.** Open [Google Cloud Console](https://console.cloud.google.com/) with a Google account (Gmail works) and accept the terms if asked.
+2. **Create a new project.** At the top, next to the “Google Cloud” logo, open the project selector, “New project”, name it `DJTube`, “Create”. Then pick DJTube in the selector. Shortcut: [create project](https://console.cloud.google.com/projectcreate).
+3. **Enable YouTube Data API v3.** Open [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) with DJTube selected and click “Enable”. If it says “Manage”, it is already on.
+4. **Create the API key.** In [Credentials](https://console.cloud.google.com/apis/credentials): “+ Create credentials”, “API key”. Do not pick “OAuth client ID”: if it asks you to configure the consent screen, you picked the wrong one.
+5. **Restrict it to YouTube (recommended).** Under “API restrictions” choose “Restrict key”, tick “YouTube Data API v3” and “OK” (Google usually requires it). Optional: under “Application restrictions”, “Websites”, add `https://dj.lulox.com.ar/*`. Then “Create”.
+6. **Copy the key** (it starts with `AIza`). If you closed the box: Credentials, the key's name, “Show key”.
+7. **Paste it in the sheet and press Guardar.**
+
+The sheet has **Guardar**, **Probar** (one cheap call, `videos.list`, 1 unit, straight from the browser to Google; it says it works or names the cause: invalid key or OAuth ID, API not enabled, key limited to other sites or other APIs, quota used up, offline) and **Borrar clave**.
+
+It is free and needs no card. By default Google gives about 100 searches per day per project (each costs 100 of the 10,000 daily units); it resets at midnight Pacific time.
 
 ```bash
 pnpm install

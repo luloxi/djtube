@@ -691,7 +691,7 @@ export function App({
           onClose={closeIntro}
         />
       ) : null}
-      {keyOpen ? <KeyModal hasKey={Boolean(ownKey)} onSave={saveOwnKey} onClear={removeOwnKey} onClose={() => setKeyOpen(false)} /> : null}
+      {keyOpen ? <KeyModal hasKey={Boolean(ownKey)} savedKey={ownKey} onSave={saveOwnKey} onClear={removeOwnKey} onClose={() => setKeyOpen(false)} /> : null}
       {limitNote ? (
         <div className="limit-note" role="status" data-testid="limit-note">
           <p>{limitNote}</p>

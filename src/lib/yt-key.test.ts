@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearOwnKey, normalizeApiKey, playlistRoute, readOwnKey, searchRoute, writeOwnKey, YT_KEY_STORAGE } from './yt-key';
+import { classifyKeyTest, clearOwnKey, keyShapeProblem, normalizeApiKey, testOwnKey, playlistRoute, readOwnKey, searchRoute, writeOwnKey, YT_KEY_STORAGE } from './yt-key';
 
 const KEY = `AIza${'a'.repeat(35)}`;
 
@@ -77,5 +77,46 @@ describe('bring your own YouTube key', () => {
     expect(normalizeApiKey('')).toBeNull();
     expect(writeOwnKey(memory(), 'secret-looking')).toBe(false);
     expect(searchRoute('hola', 'secret-looking').via).toBe('server');
+  });
+});
+
+describe('key test', () => {
+  const err = (reason: string, detail?: string) => ({
+    error: { errors: [{ reason }], details: detail ? [{ reason: detail }] : [] },
+  });
+
+  it('names the cause of the common Google errors', () => {
+    expect(classifyKeyTest(200, { items: [] })).toBe('ok');
+    expect(classifyKeyTest(400, err('badRequest', 'API_KEY_INVALID'))).toBe('invalid');
+    expect(classifyKeyTest(403, err('accessNotConfigured', 'SERVICE_DISABLED'))).toBe('disabled');
+    expect(classifyKeyTest(403, err('forbidden', 'API_KEY_HTTP_REFERRER_BLOCKED'))).toBe('referrer');
+    expect(classifyKeyTest(403, err('forbidden', 'API_KEY_SERVICE_BLOCKED'))).toBe('blocked');
+    expect(classifyKeyTest(403, err('quotaExceeded'))).toBe('quota');
+    expect(classifyKeyTest(500, null)).toBe('other');
+  });
+
+  it('spots a pasted OAuth client id and malformed keys', () => {
+    expect(keyShapeProblem('')).toBeNull();
+    expect(keyShapeProblem('1234-abc.apps.googleusercontent.com')).toBe('oauth');
+    expect(keyShapeProblem('GOCSPX-abcdef')).toBe('oauth');
+    expect(keyShapeProblem('hola')).toBe('shape');
+    expect(keyShapeProblem(KEY)).toBeNull();
+  });
+
+  it('sends the key only to googleapis.com and reports network failures', async () => {
+    const urls: string[] = [];
+    const ok = (async (url: string) => {
+      urls.push(url);
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect(await testOwnKey(KEY, ok)).toBe('ok');
+    expect(urls).toHaveLength(1);
+    expect(new URL(urls[0]).hostname).toBe('www.googleapis.com');
+    const down = (async () => {
+      throw new TypeError('offline');
+    }) as unknown as typeof fetch;
+    expect(await testOwnKey(KEY, down)).toBe('network');
+    expect(await testOwnKey('nope', ok)).toBe('invalid');
+    expect(urls).toHaveLength(1);
   });
 });

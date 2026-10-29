@@ -113,3 +113,73 @@ export async function fetchOwnPlaylistPage(playlistId: string, pageToken: string
   if (!response.ok) throw new Error('playlist');
   return parseDataApiPlaylist(data);
 }
+
+/** What went wrong when a key was tried. "ok" means YouTube answered normally. */
+export type KeyTestResult = 'ok' | 'invalid' | 'disabled' | 'referrer' | 'blocked' | 'quota' | 'network' | 'other';
+
+/** A pasted OAuth client ID is the common wrong turn: say so before spending a call. */
+export function keyShapeProblem(raw: string): 'oauth' | 'shape' | null {
+  const text = raw.trim();
+  if (!text) return null;
+  if (/\.apps\.googleusercontent\.com/i.test(text) || /^GOCSPX-/.test(text)) return 'oauth';
+  return KEY_SHAPE.test(text) ? null : 'shape';
+}
+
+function errorDetailReasons(body: unknown): string[] {
+  const error = body && typeof body === 'object' ? (body as { error?: unknown }).error : null;
+  if (!error || typeof error !== 'object') return [];
+  const out: string[] = [];
+  const errors = (error as { errors?: unknown }).errors;
+  if (Array.isArray(errors)) {
+    for (const item of errors) {
+      const reason = item && typeof item === 'object' ? (item as { reason?: unknown }).reason : null;
+      if (typeof reason === 'string') out.push(reason);
+    }
+  }
+  const details = (error as { details?: unknown }).details;
+  if (Array.isArray(details)) {
+    for (const item of details) {
+      const reason = item && typeof item === 'object' ? (item as { reason?: unknown }).reason : null;
+      if (typeof reason === 'string') out.push(reason);
+    }
+  }
+  return out;
+}
+
+/** Map a Google error answer to one friendly cause. Never looks at or returns the key. */
+export function classifyKeyTest(status: number, body: unknown): KeyTestResult {
+  if (status >= 200 && status < 300) return 'ok';
+  const reasons = errorDetailReasons(body);
+  const has = (...names: string[]) => reasons.some((reason) => names.includes(reason));
+  if (has('API_KEY_HTTP_REFERRER_BLOCKED', 'ipRefererBlocked')) return 'referrer';
+  if (has('API_KEY_SERVICE_BLOCKED', 'API_KEY_API_BLOCKED')) return 'blocked';
+  if (has('SERVICE_DISABLED', 'accessNotConfigured')) return 'disabled';
+  if (has('quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded', 'RESOURCE_EXHAUSTED') || status === 429) return 'quota';
+  if (has('API_KEY_INVALID', 'keyInvalid') || status === 400) return 'invalid';
+  return 'other';
+}
+
+/**
+ * One cheap call (videos.list costs 1 unit) straight from this browser to Google.
+ * The key goes only to googleapis.com, never to DJTube.
+ */
+export async function testOwnKey(raw: string, doFetch: typeof fetch = fetch): Promise<KeyTestResult> {
+  const key = normalizeApiKey(raw);
+  if (!key) return 'invalid';
+  const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+  url.searchParams.set('part', 'id');
+  url.searchParams.set('id', 'dQw4w9WgXcQ');
+  url.searchParams.set('key', key);
+  try {
+    const response = await doFetch(url.toString());
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+    return classifyKeyTest(response.status, body);
+  } catch {
+    return 'network';
+  }
+}

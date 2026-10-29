@@ -477,6 +477,10 @@ export function App({
   }
 
   function showQueue() {
+    if (!desktop) {
+      panels.show('queue');
+      return;
+    }
     setLeftPane('queue');
     setTab('queue');
   }
@@ -606,17 +610,14 @@ export function App({
 
   const leftOpen = tab === 'queue' || tab === 'search';
 
-  usePanelSwipe({
+  const panels = usePanelSwipe({
     enabled: !desktop,
     shell: shellRef,
     panel: panelRef,
     stage: stageRef,
     open: tab,
-    onBegin: (side) => setLeftPane(side),
-    onSettle: (side, isOpen) => {
-      setLeftPane(side);
-      setTab(isOpen ? side : null);
-    },
+    showPane: (side) => setLeftPane(side),
+    setOpen: (side) => setTab(side),
   });
 
   return (
@@ -733,6 +734,10 @@ export function App({
           setKeyOpen(true);
         }}
         onTab={(next) => {
+          if (!desktop) {
+            panels.toggle(next);
+            return;
+          }
           setLeftPane(next);
           setTab((current) => (current === next ? null : next));
         }}

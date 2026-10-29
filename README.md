@@ -141,3 +141,9 @@ La barra de abajo ya no tiene la llave, la campana ni el escudo de admin: todo e
 
 Cuando alguien nuevo entra o hay más pedidos de uso sin límite que la última vez que se abrió Admin, el botón de cuenta y la fila Admin se encienden en magenta neón hasta que el dueño abre el panel. Se compara con una marca guardada en este navegador (`djtube-admin-seen`: la última primera visita vista y la cantidad de pedidos), contra los datos que ya devuelve `/api/admin/people` (`firstSeen`, `status`); no hay tabla nueva en el servidor. Se consulta cada 20 s y la primera vez no enciende nada. Como la marca es local, otro navegador del dueño tiene su propio aviso.
 
+## Cola y Buscar
+
+Hay dos botones de navegación neón: **Cola** (azul) y **Buscar** (rojo). Cada uno muestra su vista; el activo se enciende con su color y nunca usa los tonos de A y B. En el móvil, tocar el activo cierra el panel; en escritorio el panel izquierdo siempre muestra uno de los dos. Agregar un tema desde Buscar vuelve a la Cola.
+
+Debajo de la última canción de la Cola hay una fila con tres iconos (solo tooltip): **Subir lista** (verde), **Guardar cola** (naranja) y **Vaciar cola** (rojo, pide confirmar). Subir lee un `.txt` (hasta 1 MB y 2000 temas) como el que baja Guardar cola, o cualquier texto con enlaces de YouTube; el título es la línea justo arriba del enlace. Suma al final solo los temas que no estaban, sin repetir; un archivo sin ningún enlace de video, binario o demasiado grande se rechaza con un aviso y no toca la cola. Todo es local: el archivo se lee en el navegador y no se sube a ningún servidor, así que las listas quedan privadas como texto.
+

@@ -106,3 +106,9 @@ The bottom bar no longer has the key, the bell, or the admin shield: they all li
 
 When someone new joins, or more unlimited-use requests are waiting than the last time Admin was opened, the account button and the Admin row glow neon magenta until the owner opens the panel. It compares against a marker stored in this browser (`djtube-admin-seen`: the latest first-seen and the pending count) and the data `/api/admin/people` already returns (`firstSeen`, `status`); there is no new server table. It polls every 20 s and the first run lights nothing. Because the marker is local, another browser of the owner keeps its own alert state.
 
+## Queue and Search
+
+There are two neon nav buttons: **Cola** (blue) and **Buscar** (red). Each shows its own view; the active one lights up in its colour and never uses the A/B hues. On phones, tapping the active one closes the panel; on desktop the left panel always shows one of the two. Adding a track from Buscar returns to the queue.
+
+Under the last song in the queue there is a row of three icons (tooltips only): **Subir lista** (green), **Guardar cola** (orange) and **Vaciar cola** (red, asks to confirm). Subir reads a `.txt` (up to 1 MB and 2000 tracks) like the one Guardar cola downloads, or any text with YouTube links; the title is the line right above the link. It appends only the tracks that were not queued, without repeats; a file with no video link, a binary or an oversized file is rejected with a notice and leaves the queue alone. It is all local: the file is read in the browser and never uploaded, so playlists stay private as text.
+

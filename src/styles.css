@@ -465,6 +465,7 @@ h2 {
 .tone-viz { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
 .tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
 /* Navigation: none of these share a hue with deck A (teal) or deck B (amber). */
+.tone-danger { --neon: #ff3b3b; --neon-glow: rgba(255, 59, 59, 0.9); }
 .tone-queue { --neon: #4d8dff; --neon-glow: rgba(77, 141, 255, 0.9); }
 .tone-search { --neon: #ff4d5e; --neon-glow: rgba(255, 77, 94, 0.9); }
 
@@ -1459,7 +1460,6 @@ button.text-link:hover:not(:disabled) {
   flex: none;
   padding-top: 2px;
 }
-.queue-save .icon-button { color: var(--text); }
 
 .sheet-overlay {
   position: fixed;
@@ -1544,3 +1544,7 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 .side-left .pane > .panel { flex: 0 0 auto; }
 .side-left .pane .list { overflow: visible; flex: 0 0 auto; }
 @media (min-width: 1024px) { .dock-hit { width: 44px; min-width: 44px; height: 36px; } }
+.queue-save { gap: 18px; }
+.confirm-sheet { width: min(260px, 100%); align-items: center; text-align: center; }
+.confirm-sheet p { margin: 8px 0 0; font-size: 15px; }
+.confirm-actions { display: flex; gap: 24px; justify-content: center; }

@@ -11,9 +11,12 @@ type Props = {
   keepIds?: Array<string | null | undefined>;
   onLoad: (track: Track, deck: DeckId) => void;
   onRemove?: (track: Track) => void;
+  onImport?: (items: Array<{ videoId: string; title: string }>) => void;
+  onClear?: () => void;
+  onStatus?: (message: string) => void;
 };
 
-export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove }: Props) {
+export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove, onImport, onClear, onStatus }: Props) {
   return (
     <section className="panel" aria-label="Cola" aria-busy={loading || undefined}>
       {loading ? <div className="queue-loading" data-testid="queue-loading" /> : null}
@@ -28,7 +31,7 @@ export function Library({ tracks, loading = false, compact = false, keepIds = []
           />
         ))}
       </div>
-      {compact ? null : <QueueSave tracks={tracks} />}
+      {compact || !onImport || !onClear ? null : <QueueSave tracks={tracks} onImport={onImport} onClear={onClear} onStatus={onStatus ?? (() => undefined)} />}
     </section>
   );
 }

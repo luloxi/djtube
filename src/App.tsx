@@ -15,6 +15,7 @@ import { Library } from './components/Library';
 import { PlaylistAsk } from './components/PlaylistAsk';
 import { SearchBox } from './components/SearchBox';
 import { Transition } from './components/Transition';
+import { mergeImported } from './lib/queue-export';
 import { Intro, introSeen, markIntroSeen } from './components/Intro';
 import { adminAlert, parseAdminSeen, type AdminSeen } from './lib/access';
 import { deckSnapshot, loadLibrary, loadSession, saveLibrary, saveSession } from './lib/idb';
@@ -511,6 +512,14 @@ export function App({
     if (parsed.videoId) addVideoToQueue(parsed.videoId);
   }
 
+  function importQueue(items: Array<{ videoId: string; title: string }>) {
+    const result = mergeImported(libraryRef.current, items);
+    setLibrary(result.tracks);
+    setStatus(result.added ? `${result.added} temas agregados` : 'Ya estaban en la cola');
+    const bare = items.filter((item) => item.title === item.videoId && result.tracks.some((track) => track.videoId === item.videoId));
+    if (bare.length) void enrichTracks(bare.map((item) => item.videoId), rename);
+  }
+
   function removeQueued(track: Track) {
     const keep = [decksRef.current.A.videoId, decksRef.current.B.videoId];
     const result = removeQueuedTrack(libraryRef.current, track.videoId, keep);
@@ -556,6 +565,12 @@ export function App({
               onLoad={(track, id) => void loadInto(id, track)}
               keepIds={[decks.A.videoId, decks.B.videoId]}
               onRemove={removeQueued}
+              onImport={importQueue}
+              onClear={() => {
+                setLibrary([]);
+                setStatus('Cola vacía');
+              }}
+              onStatus={setStatus}
             />
           </div>
           <div className={leftPane === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>

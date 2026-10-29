@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Track } from '../types';
 import { linkYouTubeScope } from '../lib/auth-client';
 import { downloadBlob } from '../lib/download';
-import { playlistTitle, queueLinksFilename, queueLinksText, watchVideosUrls } from '../lib/queue-export';
+import { IMPORT_MAX_BYTES, parseQueueText, playlistTitle, queueLinksFilename, queueLinksText, watchVideosUrls } from '../lib/queue-export';
 import { saveQueueToYouTube, youtubeScopeGranted, type SaveQueueResult } from '../lib/youtube-playlist';
 import { Icon } from './icons';
 
@@ -11,7 +11,20 @@ const PENDING_KEY = 'djtube-ytpl';
 
 type Step = 'menu' | 'youtube';
 
-export function QueueSave({ tracks }: { tracks: Track[] }) {
+export function QueueSave({
+  tracks,
+  onImport,
+  onClear,
+  onStatus,
+}: {
+  tracks: Track[];
+  onImport: (items: Array<{ videoId: string; title: string }>) => void;
+  onClear: () => void;
+  onStatus: (message: string) => void;
+}) {
+  const [confirmClear, setConfirmClear] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('menu');
   const [title, setTitle] = useState(() => playlistTitle());
@@ -123,6 +136,21 @@ export function QueueSave({ tracks }: { tracks: Track[] }) {
     close();
   }
 
+  function readFile(file: File) {
+    if (file.size > IMPORT_MAX_BYTES) {
+      onStatus('Archivo muy grande');
+      return;
+    }
+    file
+      .text()
+      .then((text) => {
+        const items = parseQueueText(text);
+        if (!items) onStatus('Archivo no válido');
+        else onImport(items);
+      })
+      .catch(() => onStatus('No se leyó'));
+  }
+
   function openYouTube() {
     setTitle(playlistTitle());
     setNote('');
@@ -191,12 +219,47 @@ export function QueueSave({ tracks }: { tracks: Track[] }) {
       )
     : null;
 
+  const clearSheet = confirmClear
+    ? createPortal(
+        <div className="sheet-overlay">
+          <button type="button" className="sheet-backdrop" aria-label="Cancelar" onClick={() => setConfirmClear(false)} />
+          <div className="sheet confirm-sheet" role="alertdialog" aria-modal="true" aria-label="Vaciar cola" data-testid="clear-confirm">
+            <p>¿Vaciar la cola?</p>
+            <div className="confirm-actions">
+              <button type="button" className="icon-button tone-danger" aria-label="Vaciar" title="Vaciar" data-testid="clear-yes" onClick={() => { setConfirmClear(false); onClear(); }}>
+                <Icon name="check" size={22} />
+              </button>
+              <button type="button" className="icon-button" aria-label="Cancelar" title="Cancelar" data-testid="clear-no" onClick={() => setConfirmClear(false)}>
+                <Icon name="x" size={22} />
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
   return (
     <>
       <div className="queue-save">
+        <button type="button" className="icon-button tone-play" data-testid="queue-upload" aria-label="Subir lista" title="Subir lista" onClick={() => fileRef.current?.click()}>
+          <Icon name="upload" size={20} />
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".txt,text/plain"
+          hidden
+          data-testid="queue-file"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) readFile(file);
+          }}
+        />
         <button
           type="button"
-          className="icon-button"
+          className="icon-button tone-speed"
           data-testid="queue-save"
           aria-label="Guardar cola"
           title="Guardar cola"
@@ -209,10 +272,14 @@ export function QueueSave({ tracks }: { tracks: Track[] }) {
             setOpen(true);
           }}
         >
-          <Icon name="download" />
+          <Icon name="download" size={20} />
+        </button>
+        <button type="button" className="icon-button tone-danger" data-testid="queue-clear" aria-label="Vaciar cola" title="Vaciar cola" disabled={tracks.length === 0} onClick={() => setConfirmClear(true)}>
+          <Icon name="trash" size={20} />
         </button>
       </div>
       {sheet}
+      {clearSheet}
     </>
   );
 }

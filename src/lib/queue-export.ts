@@ -1,5 +1,6 @@
 import type { Track } from '../types';
 import { decodeEntities } from './html-text';
+import { parseYouTubeUrl, trackFromId } from './youtube';
 
 export const YOUTUBE_SCOPE = 'https://www.googleapis.com/auth/youtube';
 export const WATCH_VIDEOS_CHUNK = 50;
@@ -42,4 +43,44 @@ export function hasYouTubeScope(scopes: string[] | null | undefined): boolean {
 
 export function youtubePlaylistUrl(id: string): string {
   return `https://www.youtube.com/playlist?list=${encodeURIComponent(id)}`;
+}
+
+export const IMPORT_MAX_BYTES = 1_000_000;
+export const IMPORT_MAX_TRACKS = 2000;
+
+/**
+ * Reads a file made by "Descargar" (title line, link line, blank line per track) or any text with
+ * YouTube links. A title is the non-link line right before a link. Returns null when no video is found.
+ */
+export function parseQueueText(text: string): Array<{ videoId: string; title: string }> | null {
+  if (typeof text !== 'string' || text.length > IMPORT_MAX_BYTES) return null;
+  const seen = new Set<string>();
+  const tracks: Array<{ videoId: string; title: string }> = [];
+  let title = '';
+  for (const raw of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) {
+      title = '';
+      continue;
+    }
+    const videoId = /^https?:\/\//i.test(line) ? parseYouTubeUrl(line)?.videoId : undefined;
+    if (!videoId) {
+      title = /^https?:\/\//i.test(line) ? '' : line.slice(0, 200);
+      continue;
+    }
+    if (!seen.has(videoId)) {
+      seen.add(videoId);
+      tracks.push({ videoId, title: title || videoId });
+      if (tracks.length >= IMPORT_MAX_TRACKS) break;
+    }
+    title = '';
+  }
+  return tracks.length ? tracks : null;
+}
+
+/** Appends the tracks that are not queued yet, in file order. */
+export function mergeImported(current: Track[], imported: Array<{ videoId: string; title: string }>): { tracks: Track[]; added: number } {
+  const known = new Set(current.map((track) => track.videoId));
+  const fresh = imported.filter((item) => !known.has(item.videoId)).map((item) => trackFromId(item.videoId, item.title));
+  return { tracks: fresh.length ? [...current, ...fresh] : current, added: fresh.length };
 }

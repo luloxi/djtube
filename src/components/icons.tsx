@@ -12,6 +12,8 @@ export type IconName =
   | 'sign-out'
   | 'download'
   | 'search'
+  | 'queue'
+  | 'upload'
   | 'trash'
   | 'user'
   | 'chevron-left'
@@ -73,6 +75,23 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  queue: (
+    <>
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 18h.01" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 20h14" />
     </>
   ),
   trash: (

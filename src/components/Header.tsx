@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { PushToggle } from './PushToggle';
 import { VoiceControl, type VoiceMix } from './VoiceControl';
 
-export type SideTab = 'search';
+export type SideTab = 'queue' | 'search';
 
 const CONTACT_URL = 'https://lulox.com.ar/contacto';
 const REPO_URL = 'https://github.com/luloxi/djtube';
@@ -75,6 +75,9 @@ export function Header({
   return (
     <nav className="dock" aria-label="Navegación">
       <div className="dock-main">
+        <button type="button" className="icon-button dock-hit tone-queue" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
+          <Icon name="queue" size={22} />
+        </button>
         <button type="button" className="icon-button dock-hit tone-search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
           <Icon name="search" size={22} />
         </button>

@@ -56,6 +56,7 @@ export function App({
   const [booted, setBooted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
   const [tab, setTab] = useState<SideTab | null>(null);
+  const [leftPane, setLeftPane] = useState<SideTab>('queue');
   const [adminOpen, setAdminOpen] = useState(false);
   const [pending, setPending] = useState(0);
   const [adminNew, setAdminNew] = useState(false);
@@ -427,7 +428,8 @@ export function App({
   }
 
   function showQueue() {
-    setTab('search');
+    setLeftPane('queue');
+    setTab('queue');
   }
 
   function appendTracks(items: PlaylistItem[]) {
@@ -529,7 +531,7 @@ export function App({
   const shownA = effectiveGain(curve.a, decks.A.volume);
   const shownB = effectiveGain(curve.b, decks.B.volume);
 
-  const leftOpen = tab === 'search';
+  const leftOpen = tab === 'queue' || tab === 'search';
 
   return (
     <div className="shell" data-testid="app">
@@ -546,8 +548,17 @@ export function App({
             : undefined
         }
       >
-        <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Buscar">
-          <div className="pane is-open">
+        <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
+          <div className={leftPane === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
+            <Library
+              tracks={library}
+              loading={playlistLoading}
+              onLoad={(track, id) => void loadInto(id, track)}
+              keepIds={[decks.A.videoId, decks.B.videoId]}
+              onRemove={removeQueued}
+            />
+          </div>
+          <div className={leftPane === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
             <SearchBox
               ownKey={ownKey}
               onLoad={(track, id) => void loadInto(id, track)}
@@ -557,13 +568,6 @@ export function App({
                 setKeyOpen(true);
               }}
               onLimited={explainLimit}
-            />
-            <Library
-              tracks={library}
-              loading={playlistLoading}
-              onLoad={(track, id) => void loadInto(id, track)}
-              keepIds={[decks.A.videoId, decks.B.videoId]}
-              onRemove={removeQueued}
             />
           </div>
         </aside>
@@ -617,7 +621,7 @@ export function App({
         onSignIn={onSignIn}
         onSignOut={onSignOut}
         onRequestUnlimited={() => void requestUnlimited()}
-        tab={tab}
+        tab={desktop ? leftPane : tab}
         pending={pending}
         desktop={desktop}
         webcamOn={webcamOn}
@@ -634,6 +638,7 @@ export function App({
           setKeyOpen(true);
         }}
         onTab={(next) => {
+          setLeftPane(next);
           setTab((current) => (current === next ? null : next));
         }}
       />

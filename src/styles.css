@@ -144,7 +144,7 @@ h2 {
 .side-left { border-right: 1px solid var(--line); }
 
 .side-left .pane {
-  display: flex;
+  display: none;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -465,6 +465,7 @@ h2 {
 .tone-viz { --neon: #ff4fd8; --neon-glow: rgba(255, 79, 216, 0.9); }
 .tone-key { --neon: #d6ff4a; --neon-glow: rgba(214, 255, 74, 0.9); }
 /* Navigation: none of these share a hue with deck A (teal) or deck B (amber). */
+.tone-queue { --neon: #4d8dff; --neon-glow: rgba(77, 141, 255, 0.9); }
 .tone-search { --neon: #ff4d5e; --neon-glow: rgba(255, 77, 94, 0.9); }
 
 button[class*="tone-"],
@@ -709,7 +710,7 @@ button[class*="tone-"]:focus-visible,
   z-index: 6;
 }
 
-.dock-main { display: none; align-items: center; gap: 10px; }
+.dock-main { display: flex; align-items: center; gap: 10px; }
 .dock-tabs { display: none; align-items: center; gap: 2px; }
 .dock-gap { flex: 1; }
 .dock-hit {
@@ -1539,5 +1540,7 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 .intro-key { border: 1px solid var(--neon); }
 @media (max-height: 520px) { .intro-logo { width: 72px; height: 72px; } .sheet.intro-sheet { padding-top: 12px; } }
 
+.side-left .pane.is-open { display: flex; }
 .side-left .pane > .panel { flex: 0 0 auto; }
 .side-left .pane .list { overflow: visible; flex: 0 0 auto; }
+@media (min-width: 1024px) { .dock-hit { width: 44px; min-width: 44px; height: 36px; } }

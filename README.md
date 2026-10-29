@@ -70,7 +70,7 @@ Si se acaba el cupo de la persona o el de la clave compartida, la app lo dice y 
 
 ## Usá tu propia clave
 
-Se abre desde **Conseguir clave** en la introducción, desde **Clave de YouTube** en el menú de usuario (con o sin sesión) y desde el aviso «Usá tu propia clave» de Buscar: es la misma hoja en los tres lugares (se cierra con la X, un clic afuera o Escape; scrollea y nunca es más grande que la pantalla). Trae una guía paso a paso, con los pasos plegables y enlaces que abren en pestaña nueva. La clave de YouTube Data API v3 queda solo en este navegador (`localStorage`, `djtube-yt-key`). Con ella puesta, búsqueda y páginas de playlist van directo a `googleapis.com`. No se envía al servidor de DJTube y no se escribe en un log.
+Se abre desde **Conseguir clave** en la introducción, desde **Clave de YouTube** en el menú de usuario (con o sin sesión) y desde el aviso «Usá tu propia clave» de Buscar: es la misma hoja en los tres lugares (se cierra con la X, un clic afuera o Escape; scrollea y nunca es más grande que la pantalla). Trae una guía paso a paso en acordeón (se abre un paso a la vez; tocar el abierto lo cierra; con teclado Enter/Espacio y `aria-expanded`) y enlaces que abren en pestaña nueva. La clave de YouTube Data API v3 queda solo en este navegador (`localStorage`, `djtube-yt-key`). Con ella puesta, búsqueda y páginas de playlist van directo a `googleapis.com`. No se envía al servidor de DJTube y no se escribe en un log.
 
 **Necesitás una clave de API (API key), NO un ID de cliente OAuth.**
 

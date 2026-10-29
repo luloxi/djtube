@@ -57,7 +57,7 @@ When the person's limit or the shared quota runs out, the app says so and offers
 
 ## Bring your own key
 
-It opens from **Conseguir clave** in the intro, from **Clave de YouTube** in the user menu (signed in or out) and from the “Usá tu propia clave” hint in Buscar: the same sheet in all three places (X, a click outside, or Escape closes it; it scrolls and is never taller than the screen). It carries a step-by-step guide with collapsible steps and links that open in a new tab. A YouTube Data API v3 key stays only in this browser (`localStorage`, `djtube-yt-key`). With it set, search and playlist pages go straight to `googleapis.com`. It is never sent to the DJTube server and never written to a log.
+It opens from **Conseguir clave** in the intro, from **Clave de YouTube** in the user menu (signed in or out) and from the “Usá tu propia clave” hint in Buscar: the same sheet in all three places (X, a click outside, or Escape closes it; it scrolls and is never taller than the screen). It carries a step-by-step guide as an accordion (one step open at a time; clicking the open one closes it; keyboard Enter/Space and `aria-expanded`) and links that open in a new tab. A YouTube Data API v3 key stays only in this browser (`localStorage`, `djtube-yt-key`). With it set, search and playlist pages go straight to `googleapis.com`. It is never sent to the DJTube server and never written to a log.
 
 **You need an API key, NOT an OAuth client ID.**
 

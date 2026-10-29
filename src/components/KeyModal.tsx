@@ -21,15 +21,17 @@ function Ext({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-function Step({ n, title, open, children }: { n: number; title: string; open?: boolean; children: ReactNode }) {
+function Step({ n, title, open, onToggle, children }: { n: number; title: string; open: boolean; onToggle: (n: number, button: HTMLButtonElement) => void; children: ReactNode }) {
   return (
-    <details className="key-step" open={open}>
-      <summary>
+    <div className={open ? 'key-step is-open' : 'key-step'} data-testid={`key-step-${n}`}>
+      <button type="button" className="key-step-head" id={`key-step-h${n}`} aria-expanded={open} aria-controls={`key-step-p${n}`} onClick={(event) => onToggle(n, event.currentTarget)}>
         <span className="key-n">{n}</span>
         <span>{title}</span>
-      </summary>
-      <div className="key-step-body">{children}</div>
-    </details>
+      </button>
+      <div className="key-step-body" id={`key-step-p${n}`} role="region" aria-labelledby={`key-step-h${n}`} hidden={!open}>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -48,6 +50,15 @@ export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) 
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
+  const [openStep, setOpenStep] = useState<number | null>(1);
+  const toggleStep = (n: number, button: HTMLButtonElement) => {
+    const next = openStep === n ? null : n;
+    setOpenStep(next);
+    if (next !== null) {
+      // Wait for the other steps to fold, then bring this one into view inside the scrolling sheet.
+      window.requestAnimationFrame(() => button.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    }
+  };
 
   useEffect(() => {
     alive.current = true;
@@ -117,26 +128,26 @@ export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) 
             Es gratis y no hace falta tarjeta. Con tu clave buscás sin el límite compartido: Google da unas 100 búsquedas por día por proyecto (cada una cuesta 100 de las 10.000 unidades diarias). Se renueva a medianoche, hora del Pacífico.
           </p>
           <div className="key-steps" data-testid="key-steps">
-            <Step n={1} title="Entrá a Google Cloud" open>
+            <Step n={1} title="Entrá a Google Cloud" open={openStep === 1} onToggle={toggleStep}>
               Abrí <Ext href={`${CLOUD}/`}>Google Cloud Console</Ext> e iniciá sesión con tu cuenta de Google (una de Gmail sirve). Si te pide aceptar los términos, aceptalos.
             </Step>
-            <Step n={2} title="Creá un proyecto nuevo">
+            <Step n={2} title="Creá un proyecto nuevo" open={openStep === 2} onToggle={toggleStep}>
               Arriba, al lado del logo «Google Cloud», tocá el selector de proyectos. En la ventana tocá «Proyecto nuevo» (New project). Poné de nombre <code>DJTube</code> y tocá «Crear» (Create). Cuando termine, abrí otra vez el selector y elegí DJTube: arriba tiene que decir DJTube. También podés ir directo a <Ext href={`${CLOUD}/projectcreate`}>crear proyecto</Ext>.
             </Step>
-            <Step n={3} title="Habilitá YouTube Data API v3">
+            <Step n={3} title="Habilitá YouTube Data API v3" open={openStep === 3} onToggle={toggleStep}>
               Abrí <Ext href={`${CLOUD}/apis/library/youtube.googleapis.com`}>YouTube Data API v3</Ext> con DJTube seleccionado y tocá el botón azul «Habilitar» (Enable). Si dice «Administrar», ya estaba habilitada.
             </Step>
-            <Step n={4} title="Creá la clave de API">
+            <Step n={4} title="Creá la clave de API" open={openStep === 4} onToggle={toggleStep}>
               Abrí <Ext href={`${CLOUD}/apis/credentials`}>Credenciales</Ext>. Tocá «+ Crear credenciales» (Create credentials) y elegí <strong>«Clave de API»</strong> (API key).
               <span className="key-warn-inline">No elijas «ID de cliente de OAuth». Si te pide configurar la pantalla de consentimiento, elegiste la opción equivocada: cerrala y elegí «Clave de API».</span>
             </Step>
-            <Step n={5} title="Restringila a YouTube (recomendado)">
+            <Step n={5} title="Restringila a YouTube (recomendado)" open={openStep === 5} onToggle={toggleStep}>
               En el panel que se abre, en «Restricciones de la API» elegí «Restringir clave», abrí la lista, marcá «YouTube Data API v3» y tocá «Aceptar». Google suele exigir este paso para crear la clave. Opcional: en «Restricciones de la aplicación» elegí «Sitios web» y agregá <code>https://{window.location.host}/*</code>. Después tocá «Crear».
             </Step>
-            <Step n={6} title="Copiá la clave">
+            <Step n={6} title="Copiá la clave" open={openStep === 6} onToggle={toggleStep}>
               Aparece un cuadro con un texto largo que empieza con <code>AIza</code>. Tocá el ícono de copiar. Si lo cerraste, entrá a <Ext href={`${CLOUD}/apis/credentials`}>Credenciales</Ext>, tocá el nombre de la clave y «Mostrar clave».
             </Step>
-            <Step n={7} title="Pegala acá y guardala">
+            <Step n={7} title="Pegala acá y guardala" open={openStep === 7} onToggle={toggleStep}>
               Pegá la clave abajo y tocá «Guardar». Si querés comprobar que anda, tocá «Probar» antes.
             </Step>
           </div>

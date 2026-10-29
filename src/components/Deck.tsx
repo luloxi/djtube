@@ -37,7 +37,6 @@ type Props = {
   onRate: (rate: number) => void;
   onTitle: (videoId: string, title: string) => void;
   onDropTrack: (track: Track) => void;
-  onSaveHighlight: (start: number, end: number, label: string) => void;
   onStatus: (message: string) => void;
 };
 
@@ -64,7 +63,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     onRate,
     onTitle,
     onDropTrack,
-    onSaveHighlight,
     onStatus,
   } = props;
 
@@ -80,9 +78,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [duration, setDuration] = useState(0);
   const [rates, setRates] = useState<number[]>(DEFAULT_RATES);
   const [over, setOver] = useState(false);
-  const [draft, setDraft] = useState<{ start: number; end: number } | null>(null);
-  const [label, setLabel] = useState('Corte');
-  const [clearToken, setClearToken] = useState(0);
   const [apiError, setApiError] = useState(false);
   const prerollRef = useRef<PrerollPhase>('idle');
   const spinRef = useRef<HTMLDivElement>(null);
@@ -585,17 +580,6 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     }
   }
 
-  function saveDraft(event: React.FormEvent) {
-    event.preventDefault();
-    if (!draft || !videoId) return;
-    const name = label.trim();
-    if (!name) return;
-    onSaveHighlight(draft.start, draft.end, name);
-    setDraft(null);
-    setLabel('Corte');
-    setClearToken((value) => value + 1);
-  }
-
   const waveColor = id === 'A' ? '#7f9e97' : '#c9844a';
   const waveProgress = id === 'A' ? '#d5ebe4' : '#f0d3b4';
 
@@ -703,37 +687,12 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             time={scrub ?? time}
             color={waveColor}
             progress={waveProgress}
-            clearToken={clearToken}
             onScrub={onScrub}
-            onSelect={(start, end) => setDraft({ start, end })}
           />
         ) : (
           <div className="wave wave-empty" />
         )}
       </div>
-      {draft ? (
-        <form className="draft" onSubmit={saveDraft}>
-          <span>
-            {formatTime(draft.start)}–{formatTime(draft.end)}
-          </span>
-          <input value={label} onChange={(event) => setLabel(event.target.value)} aria-label="Nombre del corte" maxLength={80} />
-          <button type="submit" className="icon-button primary" title="Guardar" aria-label="Guardar">
-            <Icon name="check" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            title="Cancelar"
-            aria-label="Cancelar"
-            onClick={() => {
-              setDraft(null);
-              setClearToken((value) => value + 1);
-            }}
-          >
-            <Icon name="x" />
-          </button>
-        </form>
-      ) : null}
     </article>
   );
 });

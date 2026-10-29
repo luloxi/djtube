@@ -593,7 +593,6 @@ button[class*="tone-"]:focus-visible,
   cursor: pointer;
   touch-action: none;
 }
-.wave-scrub.pick-region { pointer-events: none; }
 .wave, .wave-empty {
   flex: 1 1 auto;
   min-height: 0;
@@ -773,7 +772,6 @@ button[class*="tone-"]:focus-visible,
 }
 .dock .icon-button[class*="tone-"][aria-pressed="false"]:hover,
 .side-tabs .icon-button[class*="tone-"][aria-pressed="false"]:hover { opacity: 0.9; }
-.dock-logo { width: 26px; height: 26px; margin: 0 4px 0 2px; flex: 0 0 auto; user-select: none; }
 .welcome-logo { width: 112px; height: 112px; user-select: none; filter: drop-shadow(0 0 14px rgba(255, 138, 31, 0.35)); }
 
 .dock .rec {
@@ -1075,17 +1073,6 @@ button.track-name { cursor: pointer; width: 100%; min-height: 32px; }
 .tip { display: inline-flex; cursor: pointer; }
 .tip:has(button:disabled) { cursor: not-allowed; }
 .tip button:disabled { pointer-events: none; }
-
-.draft {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  padding: 2px 6px 4px;
-  flex: 0 0 auto;
-}
-
-.draft span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.draft input { flex: 1; min-width: 0; width: auto; }
 
 .install {
   position: fixed;

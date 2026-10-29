@@ -35,7 +35,7 @@ El micrófono de la barra (solo en escritorio; no aparece en celulares ni tablet
 
 En escritorio (1024px y puntero fino) la cola, los dos decks y el mixer son una sola grilla. Arrastrar un borde reparte el lugar: la cola más ancha achica los dos decks, un deck más ancho achica al otro, el mixer más alto achica la fila de decks. Nada se sale de la mesa ni se pisa. Al cambiar el tamaño de la ventana, lo guardado se vuelve a encajar, también si venía de un layout viejo más grande que la pantalla. La cámara, si está prendida, flota encima y también queda dentro de la mesa. El layout queda en `djtube-layout`. **Restablecer** está en la cuenta. La barra de abajo no se esconde. En el teléfono la grilla fija no se mueve.
 
-Con Shift apretado, arrastra sobre la onda, ponle nombre y guarda el corte. En Highlights puedes buscar, hacer play o cue en A o B, borrar, exportar e importar JSON. No se descarga el audio del corte.
+Los cortes se hacen solo en Preparar (modo edición), nunca en DJ (producción): la onda de los decks solo explora el tema, no selecciona ni guarda. En la lista de Cortes puedes buscar, renombrar, reabrir para ajustar, borrar, exportar e importar JSON. No se descarga el audio del corte.
 
 La cola se puede vaciar: no saca los temas que están en A o en B. Deslizar una fila a izquierda o derecha (dedo o mouse) también la quita, con una salida corta y un aviso **deshacer**. Si el tema está en A o en B, la fila vuelve sola.
 

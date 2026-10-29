@@ -22,7 +22,7 @@ On a desktop (1024px and a fine pointer) the queue, the two decks, and the mixer
 
 Each deck's waveform is not text-selectable. Press and drag on it to scrub: while the deck plays you hear short bursts at the pointer (like fast rewind or forward) and it goes silent when the pointer rests; a paused deck seeks silently. On release the playhead stays where you let go and playback continues from there (or stays paused). Mouse and touch. YouTube titles are shown as plain text: `&#39;`, `&amp;` and other entities are decoded (no `innerHTML`), including already-saved queue items.
 
-Hold **Shift** and drag the waveform to save a named highlight. Search, cue, or play it into either deck, delete, export, or import JSON. The highlight audio is not downloaded.
+Cuts are made only in Preparar (edit mode), never in DJ (production): the deck waveform only scrubs, it does not select or save. In the Cortes list you can search, rename, reopen to adjust, delete, export, or import JSON. The cut's audio is not downloaded.
 
 Clear list keeps whatever is loaded on A or B. Admin opens as a sheet over the mixer so playback is not torn down. The owner sees a badge for unlimited-search requests on the admin icon (polled). The bell, for someone already signed in, opts this phone into Web Push. A new request notifies the owner's subscriptions. Marking someone unlimited also pushes that person if they subscribed, and sends mail through Resend from `DJTube <no-responder@lulox.com.ar>` (or `APPROVAL_FROM`). A failed send is logged and does not undo the change.
 

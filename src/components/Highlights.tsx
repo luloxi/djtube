@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { DeckId, Highlight } from '../types';
+import type { Highlight } from '../types';
 import { formatTime } from '../lib/format';
 import { exportHighlights, importHighlights, renameHighlight, searchHighlights } from '../lib/highlights';
 import { downloadBlob } from '../lib/download';
@@ -9,12 +9,11 @@ import { decodeEntities } from '../lib/html-text';
 type Props = {
   highlights: Highlight[];
   onChange: (next: Highlight[]) => void;
-  onPlay: (highlight: Highlight, deck: DeckId, play: boolean) => void;
   onStatus: (message: string) => void;
   onEdit?: (highlight: Highlight) => void;
 };
 
-export function Highlights({ highlights, onChange, onPlay, onStatus, onEdit }: Props) {
+export function Highlights({ highlights, onChange, onStatus, onEdit }: Props) {
   const [query, setQuery] = useState('');
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -100,10 +99,6 @@ export function Highlights({ highlights, onChange, onPlay, onStatus, onEdit }: P
                 </span>
               </p>
               <div className="row">
-                <DeckHit icon="play" deck="A" label="Play A" onClick={() => onPlay(highlight, 'A', true)} />
-                <DeckHit icon="cue" deck="A" label="Cue A" onClick={() => onPlay(highlight, 'A', false)} />
-                <DeckHit icon="play" deck="B" label="Play B" onClick={() => onPlay(highlight, 'B', true)} />
-                <DeckHit icon="cue" deck="B" label="Cue B" onClick={() => onPlay(highlight, 'B', false)} />
                 {onEdit ? (
                   <button type="button" className="icon-button tone-cut" title="Editar corte" aria-label="Editar corte" onClick={() => onEdit(highlight)}>
                     <Icon name="cuts" size={15} />
@@ -120,14 +115,5 @@ export function Highlights({ highlights, onChange, onPlay, onStatus, onEdit }: P
           ))}
       </div>
     </section>
-  );
-}
-
-function DeckHit({ icon, deck, label, onClick }: { icon: 'play' | 'cue'; deck: 'A' | 'B'; label: string; onClick: () => void }) {
-  return (
-    <button type="button" className="icon-button letter" title={label} aria-label={label} onClick={onClick}>
-      <Icon name={icon} size={15} />
-      <span>{deck}</span>
-    </button>
   );
 }

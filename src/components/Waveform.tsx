@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 
 type Props = {
   peaks: number[] | null;
@@ -8,22 +7,16 @@ type Props = {
   time: number;
   color: string;
   progress: string;
-  clearToken: number;
   /** Press, drag and release on the wave: the deck scrubs there and keeps the release point. */
   onScrub: (phase: 'start' | 'move' | 'end', seconds: number) => void;
-  onSelect: (start: number, end: number) => void;
 };
 
-export function Waveform({ peaks, duration, time, color, progress, clearToken, onScrub, onSelect }: Props) {
+export function Waveform({ peaks, duration, time, color, progress, onScrub }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
-  const regionsRef = useRef<RegionsPlugin | null>(null);
   const scrubRef = useRef(onScrub);
   const dragRef = useRef<{ pointerId: number; last: number } | null>(null);
-  const [pick, setPick] = useState(false);
-  const selectRef = useRef(onSelect);
   scrubRef.current = onScrub;
-  selectRef.current = onSelect;
 
   const peaksRef = useRef(peaks);
   peaksRef.current = peaks;
@@ -58,27 +51,8 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
     } catch {
       return;
     }
-    const regions = ws.registerPlugin(RegionsPlugin.create());
-    regions.enableDragSelection({
-      color: 'rgba(231, 164, 90, 0.28)',
-      drag: true,
-      resize: true,
-    });
     ws.on('error', () => undefined);
-    const keepLatest = (region: { id: string; start: number; end: number }) => {
-      if (region.end - region.start < 0.3) {
-        regions.getRegions().find((item) => item.id === region.id)?.remove();
-        return;
-      }
-      for (const other of regions.getRegions()) {
-        if (other.id !== region.id) other.remove();
-      }
-      selectRef.current(region.start, region.end);
-    };
-    regions.on('region-created', keepLatest);
-    regions.on('region-updated', keepLatest);
     wsRef.current = ws;
-    regionsRef.current = regions;
     let fitted = 0;
     const fit = () => {
       const next = Math.floor(host.clientHeight);
@@ -91,7 +65,6 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
     fit();
     return () => {
       observer.disconnect();
-      regionsRef.current = null;
       wsRef.current = null;
       ws.destroy();
     };
@@ -106,10 +79,6 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
   }, [peaks, duration]);
 
   useEffect(() => {
-    regionsRef.current?.clearRegions();
-  }, [clearToken]);
-
-  useEffect(() => {
     const ws = wsRef.current;
     if (!ws || !(duration > 0)) return;
     try {
@@ -118,20 +87,6 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
       /* playhead waits until the waveform is ready */
     }
   }, [time, duration]);
-
-  // Shift held: the overlay lets the drag through so the Regions plugin can select a highlight.
-  useEffect(() => {
-    const sync = (event: KeyboardEvent) => setPick(event.shiftKey);
-    const off = () => setPick(false);
-    window.addEventListener('keydown', sync);
-    window.addEventListener('keyup', sync);
-    window.addEventListener('blur', off);
-    return () => {
-      window.removeEventListener('keydown', sync);
-      window.removeEventListener('keyup', sync);
-      window.removeEventListener('blur', off);
-    };
-  }, []);
 
   function secondsAt(event: ReactPointerEvent<HTMLDivElement>): number {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -151,7 +106,7 @@ export function Waveform({ peaks, duration, time, color, progress, clearToken, o
     <>
       <div className="wave" ref={hostRef} data-testid="waveform" />
       <div
-        className={pick ? 'wave-scrub pick-region' : 'wave-scrub'}
+        className="wave-scrub"
         data-testid="wave-scrub"
         onPointerDown={(event) => {
           if (event.pointerType === 'mouse' && event.button !== 0) return;

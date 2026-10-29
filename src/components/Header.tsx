@@ -81,7 +81,6 @@ export function Header({
   return (
     <nav className="dock" aria-label="Navegación">
       <div className="dock-modes">
-        <img className="dock-logo" src="/djtube.svg?v=2" alt="" width={26} height={26} draggable={false} />
         <button type="button" className="icon-button tone-prepare" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => {
             if (mode === 'dj' && isPlaying?.()) setLeaveAsk(true);
             else onMode('preparar');

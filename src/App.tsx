@@ -18,7 +18,6 @@ import { Preparar } from './components/Preparar';
 import { SearchBox } from './components/SearchBox';
 import { Transition } from './components/Transition';
 import { Welcome } from './components/Welcome';
-import { addHighlight } from './lib/highlights';
 import { deckSnapshot, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clearQueue, removeQueuedTrack, restoreTrack } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
@@ -512,22 +511,6 @@ export function App({
     });
   }
 
-  function saveHighlight(id: DeckId, start: number, end: number, label: string) {
-    const deck = decksRef.current[id];
-    if (!deck.videoId) return;
-    const highlight: Highlight = {
-      id: crypto.randomUUID(),
-      videoId: deck.videoId,
-      title: deck.title || deck.videoId,
-      start,
-      end,
-      label,
-      peaks: [],
-    };
-    setHighlights((prev) => addHighlight(prev, highlight));
-    setStatus('Guardado');
-  }
-
   const curve = transitionGain(x);
   const shownA = effectiveGain(curve.a, decks.A.volume);
   const shownB = effectiveGain(curve.b, decks.B.volume);
@@ -553,7 +536,6 @@ export function App({
         <Preparar
           highlights={highlights}
           onHighlights={setHighlights}
-          onPlayHighlight={(highlight, id, play) => void loadInto(id, trackFromId(highlight.videoId, highlight.title), { seconds: highlight.start, play })}
           onStatus={setStatus}
           library={library}
           ownKey={ownKey}
@@ -630,7 +612,6 @@ export function App({
                 onRate={(playbackRate) => setDecks((prev) => ({ ...prev, [id]: { ...prev[id], playbackRate } }))}
                 onTitle={rename}
                 onDropTrack={(track) => void loadInto(id, track)}
-                onSaveHighlight={(start, end, label) => saveHighlight(id, start, end, label)}
                 onStatus={setStatus}
               />
             ))}

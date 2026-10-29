@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { DeckId, Highlight, Track } from '../types';
+import type { Highlight, Track } from '../types';
 import { addHighlight } from '../lib/highlights';
 import { decodeEntities } from '../lib/html-text';
 import { parseYouTubeUrl, trackFromId } from '../lib/youtube';
@@ -12,7 +12,6 @@ import { SongRow } from './SongRow';
 type Props = {
   highlights: Highlight[];
   onHighlights: (next: Highlight[]) => void;
-  onPlayHighlight: (highlight: Highlight, deck: DeckId, play: boolean) => void;
   onStatus: (message: string) => void;
   library: Track[];
   ownKey: string | null;
@@ -91,7 +90,6 @@ export function Preparar(props: Props) {
           <Highlights
             highlights={highlights}
             onChange={onHighlights}
-            onPlay={props.onPlayHighlight}
             onStatus={onStatus}
             onEdit={(cut) =>
               setOpen({ videoId: cut.videoId, title: cut.title, initial: { id: cut.id, start: cut.start, end: cut.end, label: cut.label } })

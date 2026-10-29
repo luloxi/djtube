@@ -4,23 +4,26 @@ import type { Track } from '../types';
 import { linkYouTubeScope } from '../lib/auth-client';
 import { downloadBlob } from '../lib/download';
 import { IMPORT_MAX_BYTES, parseQueueText, playlistTitle, queueLinksFilename, queueLinksText, watchVideosUrls } from '../lib/queue-export';
+import { accountPlaylists } from '../lib/account-client';
 import { saveQueueToYouTube, youtubeScopeGranted, type SaveQueueResult } from '../lib/youtube-playlist';
 import { Icon } from './icons';
 
 const PENDING_KEY = 'djtube-ytpl';
 
-type Step = 'menu' | 'youtube';
+type Step = 'menu' | 'youtube' | 'account';
 
 export function QueueSave({
   tracks,
   onImport,
   onClear,
   onStatus,
+  signedIn = false,
 }: {
   tracks: Track[];
   onImport: (items: Array<{ videoId: string; title: string }>) => void;
   onClear: () => void;
   onStatus: (message: string) => void;
+  signedIn?: boolean;
 }) {
   const [confirmClear, setConfirmClear] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -151,6 +154,31 @@ export function QueueSave({
       .catch(() => onStatus('No se leyó'));
   }
 
+  function openAccount() {
+    setTitle(playlistTitle());
+    setNote('');
+    setStep('account');
+  }
+
+  async function saveToAccount() {
+    setBusy(true);
+    setNote('');
+    const result = await accountPlaylists.create(
+      title.trim(),
+      tracks.map((track) => ({ videoId: track.videoId, title: track.title })),
+    );
+    setBusy(false);
+    if (result.ok) {
+      close();
+      onStatus('Playlist guardada en tu cuenta');
+      return;
+    }
+    if (result.reason === 'limit') setNote('Llegaste al máximo de playlists guardadas. Borrá alguna.');
+    else if (result.reason === 'unauthorized') setNote('Tu sesión venció. Entrá de nuevo.');
+    else if (result.reason === 'invalid') setNote('Revisá el nombre y que la cola no pase de 500 temas.');
+    else setNote('No se pudo guardar.');
+  }
+
   function openYouTube() {
     setTitle(playlistTitle());
     setNote('');
@@ -173,12 +201,44 @@ export function QueueSave({
             </div>
             {step === 'menu' ? (
               <>
-                <button type="button" className="choice" onClick={download}>
-                  Descargar lista de links
+                <button
+                  type="button"
+                  className="choice"
+                  data-testid="save-account"
+                  disabled={!signedIn}
+                  title={signedIn ? 'Guardar en mi cuenta' : 'Entrá con Google para guardar en tu cuenta'}
+                  onClick={openAccount}
+                >
+                  Guardar en mi cuenta
                 </button>
-                <button type="button" className="choice" onClick={openYouTube}>
+                <button type="button" className="choice" data-testid="save-youtube" onClick={openYouTube}>
                   Guardar en YouTube
                 </button>
+                <button type="button" className="choice" data-testid="save-txt" onClick={download}>
+                  Descargar lista de links
+                </button>
+              </>
+            ) : step === 'account' ? (
+              <>
+                <input
+                  type="text"
+                  value={title}
+                  maxLength={80}
+                  aria-label="Nombre de la playlist"
+                  data-testid="account-name"
+                  disabled={busy}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="choice"
+                  data-testid="account-save"
+                  disabled={busy || !title.trim() || ids.length === 0}
+                  onClick={() => void saveToAccount()}
+                >
+                  {busy ? 'Guardando…' : 'Guardar'}
+                </button>
+                {note ? <p className="hint">{note}</p> : null}
               </>
             ) : (
               <>

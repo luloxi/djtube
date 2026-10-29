@@ -25,7 +25,9 @@ import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
 import { fetchPlaylistPage, playlistItemToTrack, takeNewPlaylistItems, walkPlaylistPages, type PlaylistItem } from './lib/playlist';
 import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds, type ParsedYouTube } from './lib/youtube';
 import { readPlaylistIds } from './lib/youtube-api';
-import { readOwnKey, writeOwnKey, clearOwnKey } from './lib/yt-key';
+import { accountKey } from './lib/account-client';
+import { PlaylistsModal } from './components/PlaylistsModal';
+import { clearOwnKey, dropAccountKeyCache, markAccountKey, normalizeApiKey, readOwnKey, writeOwnKey } from './lib/yt-key';
 
 function deskBounds(): Bounds {
   if (typeof window === 'undefined') return { width: 1440, height: 900 };
@@ -69,6 +71,7 @@ export function App({
   const [requesting, setRequesting] = useState(false);
   const [ownKey, setOwnKey] = useState<string | null>(() => readOwnKey(window.localStorage));
   const [keyOpen, setKeyOpen] = useState(false);
+  const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [limitNote, setLimitNote] = useState('');
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches);
   const [layout, setLayout] = useState<DeskLayout>(() => {
@@ -201,12 +204,50 @@ export function App({
     if (!ok) return false;
     setOwnKey(readOwnKey(window.localStorage));
     setLimitNote('');
+    const key = normalizeApiKey(raw);
+    if (email && key) {
+      void accountKey.put(key).then((result) => {
+        if (result.ok) {
+          markAccountKey(window.localStorage, true);
+          setStatus('Clave guardada en tu cuenta');
+        } else {
+          setStatus('No se pudo guardar en tu cuenta. Quedó en este dispositivo');
+        }
+      });
+    }
     return true;
   }
 
   function removeOwnKey() {
     clearOwnKey(window.localStorage);
+    markAccountKey(window.localStorage, false);
     setOwnKey(null);
+    if (email) {
+      void accountKey.remove().then((result) => {
+        setStatus(result.ok ? 'Clave borrada de tu cuenta y de este dispositivo' : 'No se pudo borrar de tu cuenta');
+      });
+    }
+  }
+
+  // Signed in: the key kept in the account comes along to this device.
+  useEffect(() => {
+    if (!email) return;
+    let cancel = false;
+    void accountKey.get().then((result) => {
+      if (cancel || !result.ok || !result.key) return;
+      if (writeOwnKey(window.localStorage, result.key)) {
+        markAccountKey(window.localStorage, true);
+        setOwnKey(readOwnKey(window.localStorage));
+      }
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [email]);
+
+  function signOut() {
+    if (dropAccountKeyCache(window.localStorage)) setOwnKey(null);
+    onSignOut?.();
   }
 
   const xRef = useRef(0.5);
@@ -607,6 +648,7 @@ export function App({
                 setStatus('Cola vacía');
               }}
               onStatus={setStatus}
+              signedIn={Boolean(email)}
             />
           </div>
           <div className={leftPane === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
@@ -671,7 +713,8 @@ export function App({
         configured={configured}
         requesting={requesting}
         onSignIn={onSignIn}
-        onSignOut={onSignOut}
+        onSignOut={signOut}
+        onOpenPlaylists={() => setPlaylistsOpen(true)}
         onRequestUnlimited={() => void requestUnlimited()}
         tab={desktop ? leftPane : tab}
         pending={pending}
@@ -727,7 +770,8 @@ export function App({
           onClose={closeIntro}
         />
       ) : null}
-      {keyOpen ? <KeyModal hasKey={Boolean(ownKey)} savedKey={ownKey} onSave={saveOwnKey} onClear={removeOwnKey} onClose={() => setKeyOpen(false)} /> : null}
+      {playlistsOpen ? <PlaylistsModal onAdd={importQueue} onStatus={setStatus} onClose={() => setPlaylistsOpen(false)} /> : null}
+      {keyOpen ? <KeyModal signedIn={Boolean(email)} hasKey={Boolean(ownKey)} savedKey={ownKey} onSave={saveOwnKey} onClear={removeOwnKey} onClose={() => setKeyOpen(false)} /> : null}
       {limitNote ? (
         <div className="limit-note" role="status" data-testid="limit-note">
           <p>{limitNote}</p>

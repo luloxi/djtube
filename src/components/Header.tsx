@@ -28,6 +28,7 @@ export function Header({
   onWebcam,
   onResetLayout,
   onOpenKey,
+  onOpenPlaylists,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
@@ -48,6 +49,7 @@ export function Header({
   onWebcam?: () => void;
   onResetLayout?: () => void;
   onOpenKey: () => void;
+  onOpenPlaylists?: () => void;
 }) {
   const [menu, setMenu] = useState(false);
   const voiceMix = useRef<VoiceMix>({ stream: null, ctx: null });
@@ -115,6 +117,22 @@ export function Header({
               <Icon name="key" />
               <span>Clave de YouTube</span>
             </button>
+            {email && onOpenPlaylists ? (
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="my-playlists-open"
+                aria-label="Mis playlists"
+                title="Mis playlists"
+                onClick={() => {
+                  setMenu(false);
+                  onOpenPlaylists();
+                }}
+              >
+                <Icon name="playlist" />
+                <span>Mis playlists</span>
+              </button>
+            ) : null}
             {email ? <PushToggle onStatus={onStatus} /> : null}
             {owner ? (
               <button

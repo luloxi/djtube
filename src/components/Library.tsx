@@ -15,9 +15,10 @@ type Props = {
   onImport?: (items: Array<{ videoId: string; title: string }>) => void;
   onClear?: () => void;
   onStatus?: (message: string) => void;
+  signedIn?: boolean;
 };
 
-export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove, onImport, onClear, onStatus }: Props) {
+export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove, onImport, onClear, onStatus, signedIn = false }: Props) {
   return (
     <section className="panel" aria-label="Cola" aria-busy={loading || undefined}>
       {loading ? <div className="queue-loading" data-testid="queue-loading" /> : null}
@@ -32,7 +33,7 @@ export function Library({ tracks, loading = false, compact = false, keepIds = []
           />
         ))}
       </div>
-      {compact || !onImport || !onClear ? null : <QueueSave tracks={tracks} onImport={onImport} onClear={onClear} onStatus={onStatus ?? (() => undefined)} />}
+      {compact || !onImport || !onClear ? null : <QueueSave tracks={tracks} onImport={onImport} onClear={onClear} onStatus={onStatus ?? (() => undefined)} signedIn={signedIn} />}
     </section>
   );
 }

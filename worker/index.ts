@@ -15,6 +15,7 @@ import {
 import { normalizeSearchQuery, SEARCH_CACHE_SECONDS, youtubeFailure } from '../src/lib/quota';
 import { parsePushSubscription, vapidKeysReady } from '../src/lib/push-sub';
 import { parseSearchItems } from '../src/lib/youtube-search';
+import { handleAccount } from './account';
 import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
 import { authConfig, getAuth, readSession } from './auth';
 import { chargeBudget, keyBudget } from './budget';
@@ -26,6 +27,7 @@ import { readCachedJson, writeCachedJson } from './yt-cache';
 import { handlePlaylist, handleYouTubePlaylist } from './youtube';
 
 interface Env extends RateEnv {
+  KEY_VAULT_SECRET?: string;
   ASSETS: { fetch(input: Request | URL | string): Promise<Response> };
   YT_API_KEY?: string;
   DB?: D1Database;
@@ -50,6 +52,7 @@ export default {
     if (url.pathname === '/api/access/request') return handleUnlimitedRequest(request, env);
     if (url.pathname === '/api/admin/people') return handleAdmin(request, env);
     if (url.pathname === '/api/push/key' || url.pathname === '/api/push/subscribe') return handlePush(request, env);
+    if (url.pathname.startsWith('/api/account/')) return handleAccount(request, env);
     if (url.pathname === '/api/search') return search(request, url, env);
     if (url.pathname === '/api/playlist') return handlePlaylist(request, env);
     if (url.pathname === '/api/youtube/playlist') return handleYouTubePlaylist(request, env);

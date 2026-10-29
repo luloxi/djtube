@@ -6,6 +6,7 @@ import { keyShapeProblem, normalizeApiKey, testOwnKey, type KeyTestResult } from
 const CLOUD = 'https://console.cloud.google.com';
 
 type Props = {
+  signedIn: boolean;
   hasKey: boolean;
   savedKey: string | null;
   onSave: (raw: string) => boolean;
@@ -45,10 +46,11 @@ const HINTS: Record<Exclude<KeyTestResult, 'ok'>, string> = {
   other: 'Google devolvió un error que no reconozco. Probá de nuevo en un rato.',
 };
 
-export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) {
+export function KeyModal({ signedIn, hasKey, savedKey, onSave, onClear, onClose }: Props) {
   const [raw, setRaw] = useState('');
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const alive = useRef(true);
   const [openStep, setOpenStep] = useState<number | null>(1);
   const toggleStep = (n: number, button: HTMLButtonElement) => {
@@ -151,10 +153,14 @@ export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) 
               Pegá la clave abajo y tocá «Guardar». Si querés comprobar que anda, tocá «Probar» antes.
             </Step>
           </div>
-          <p className="key-privacy">La clave queda solo en este navegador. No se envía a DJTube ni se anota en ningún log.</p>
+          <p className="key-privacy" data-testid="key-privacy">
+            {signedIn
+              ? 'Al guardar, la clave queda cifrada en tu cuenta y la tenés en cada dispositivo al entrar. Solo vos podés leerla y no se anota en ningún log. Las búsquedas siguen yendo de tu navegador directo a Google.'
+              : 'La clave queda solo en este navegador. No se envía a DJTube ni se anota en ningún log. Si entrás con Google, también podés guardarla en tu cuenta.'}
+          </p>
         </div>
         <form className="key-form" onSubmit={save}>
-          {hasKey ? <p className="hint key-saved">Hay una clave guardada en este navegador.</p> : null}
+          {hasKey ? <p className="hint key-saved">{signedIn ? 'Hay una clave guardada.' : 'Hay una clave guardada en este navegador.'}</p> : null}
           <input
             type="password"
             value={raw}
@@ -189,18 +195,37 @@ export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) 
               type="button"
               className="key-btn tone-danger"
               data-testid="yt-key-clear"
-              title="Borrar la clave de este navegador"
+              title={signedIn ? 'Borrar la clave de tu cuenta y de este navegador' : 'Borrar la clave de este navegador'}
               disabled={!hasKey}
-              onClick={() => {
-                onClear();
-                setRaw('');
-                setNote(null);
-              }}
+              onClick={() => setConfirming(true)}
             >
               <Icon name="trash" size={16} />
               <span>Borrar clave</span>
             </button>
           </div>
+          {confirming ? (
+            <div className="key-confirm" role="alertdialog" aria-label="Borrar clave" data-testid="yt-key-confirm">
+              <span>{signedIn ? '¿Borrar la clave de tu cuenta y de este navegador?' : '¿Borrar la clave de este navegador?'}</span>
+              <button
+                type="button"
+                className="icon-button tone-danger"
+                aria-label="Borrar"
+                title="Borrar"
+                data-testid="yt-key-confirm-yes"
+                onClick={() => {
+                  setConfirming(false);
+                  onClear();
+                  setRaw('');
+                  setNote(null);
+                }}
+              >
+                <Icon name="check" size={20} />
+              </button>
+              <button type="button" className="icon-button" aria-label="Cancelar" title="Cancelar" data-testid="yt-key-confirm-no" onClick={() => setConfirming(false)}>
+                <Icon name="x" size={20} />
+              </button>
+            </div>
+          ) : null}
           {note ? (
             <p className={note.ok ? 'key-note is-ok' : 'key-note is-bad'} role="status" data-testid="yt-key-result">
               {note.text}

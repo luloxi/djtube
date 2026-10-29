@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyKeyTest, clearOwnKey, keyShapeProblem, normalizeApiKey, testOwnKey, playlistRoute, readOwnKey, searchRoute, writeOwnKey, YT_KEY_STORAGE } from './yt-key';
+import { dropAccountKeyCache, markAccountKey, classifyKeyTest, clearOwnKey, keyShapeProblem, normalizeApiKey, testOwnKey, playlistRoute, readOwnKey, searchRoute, writeOwnKey, YT_KEY_STORAGE } from './yt-key';
 
 const KEY = `AIza${'a'.repeat(35)}`;
 
@@ -118,5 +118,18 @@ describe('key test', () => {
     expect(await testOwnKey(KEY, down)).toBe('network');
     expect(await testOwnKey('nope', ok)).toBe('invalid');
     expect(urls).toHaveLength(1);
+  });
+});
+
+describe('account key cache', () => {
+  it('removes the local key on sign-out only when it belongs to the account', () => {
+    const store = memory();
+    writeOwnKey(store, KEY);
+    expect(dropAccountKeyCache(store)).toBe(false);
+    expect(readOwnKey(store)).toBe(KEY);
+    markAccountKey(store, true);
+    expect(dropAccountKeyCache(store)).toBe(true);
+    expect(readOwnKey(store)).toBeNull();
+    expect(store.getItem('djtube-yt-key-acct')).toBeNull();
   });
 });

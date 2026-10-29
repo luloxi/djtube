@@ -14,7 +14,8 @@
     "run_worker_first": ["/api/*"]
   },
   // Secrets (wrangler secret put, never in this file): BETTER_AUTH_SECRET,
-  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, YT_API_KEY, RESEND_API_KEY.
+  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, YT_API_KEY, RESEND_API_KEY,
+  // KEY_VAULT_SECRET (>=32 chars; encrypts each user's saved YouTube key in D1. Losing it makes saved keys unreadable).
   // Approval mail is Resend, from "DJTube <no-responder@lulox.com.ar>" or APPROVAL_FROM.
   // Rate limits (Workers Rate Limiting, free): see worker/ratelimit.ts. Per IP, per Cloudflare location.
   "ratelimits": [

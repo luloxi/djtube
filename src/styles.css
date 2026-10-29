@@ -1765,3 +1765,18 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
   /* A clear gap above the timeline. */
   .deck .wave-wrap { margin-top: 10px; }
 }
+
+/* Saved playlists (account) */
+.pl-sheet { width: min(460px, 100%); max-height: min(80dvh, 560px); overflow: auto; gap: 8px; }
+.pl-sheet .sheet-head { justify-content: space-between; align-items: center; }
+.pl-title { margin: 0; font-size: 17px; }
+.pl-saved { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pl-saved-row { display: flex; align-items: center; gap: 4px; min-height: 48px; border-bottom: 1px solid var(--line); }
+.pl-saved-name { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.pl-saved-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-saved-count { flex: none; color: var(--muted); font-size: 12px; }
+.pl-saved-input { flex: 1 1 auto; min-width: 0; }
+.pl-saved-ask { color: var(--muted); font-size: 13px; padding: 0 4px; }
+.pl-saved-row .icon-button { flex: none; width: 40px; height: 40px; }
+.key-confirm { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.key-confirm span { flex: 1 1 auto; }

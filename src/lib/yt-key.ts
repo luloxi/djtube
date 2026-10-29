@@ -2,8 +2,13 @@ import { normalizeSearchQuery, youtubeFailure } from './quota';
 import { parseDataApiPlaylist, type PlaylistPage } from './playlist';
 import { parseSearchItems, type SearchHit, type SearchKind } from './youtube-search';
 
-/** This browser only. The value is never sent to the DJTube worker. */
+/**
+ * Local copy of the key. Searches with it go from the browser straight to Google, never through the worker.
+ * Signed-in people may also keep it encrypted in their account (see worker/account.ts); this stays the cache.
+ */
 export const YT_KEY_STORAGE = 'djtube-yt-key';
+/** '1' while the local copy came from, or went to, the signed-in account. Signing out then removes it. */
+export const YT_KEY_ACCOUNT_FLAG = 'djtube-yt-key-acct';
 
 const KEY_SHAPE = /^AIza[\w-]{20,80}$/;
 
@@ -39,6 +44,31 @@ export function clearOwnKey(storage: { removeItem(key: string): void } | null): 
     storage.removeItem(YT_KEY_STORAGE);
   } catch {
     /* private mode */
+  }
+}
+
+type Flags = { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
+
+export function markAccountKey(storage: Flags | null, on: boolean): void {
+  if (!storage) return;
+  try {
+    if (on) storage.setItem(YT_KEY_ACCOUNT_FLAG, '1');
+    else storage.removeItem(YT_KEY_ACCOUNT_FLAG);
+  } catch {
+    /* private mode */
+  }
+}
+
+/** On sign-out: a key that belongs to the account must not stay behind on a shared device. */
+export function dropAccountKeyCache(storage: Flags | null): boolean {
+  if (!storage) return false;
+  try {
+    if (storage.getItem(YT_KEY_ACCOUNT_FLAG) !== '1') return false;
+    storage.removeItem(YT_KEY_STORAGE);
+    storage.removeItem(YT_KEY_ACCOUNT_FLAG);
+    return true;
+  } catch {
+    return false;
   }
 }
 

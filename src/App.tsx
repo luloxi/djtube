@@ -15,6 +15,7 @@ import { Library } from './components/Library';
 import { PlaylistAsk } from './components/PlaylistAsk';
 import { SearchBox } from './components/SearchBox';
 import { Transition } from './components/Transition';
+import { usePanelSwipe } from './lib/use-panel-swipe';
 import { mergeImported } from './lib/queue-export';
 import { Intro, introSeen, markIntroSeen } from './components/Intro';
 import { adminAlert, parseAdminSeen, type AdminSeen } from './lib/access';
@@ -84,6 +85,9 @@ export function App({
     }
   });
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLElement>(null);
   const playlistGen = useRef(0);
 
   useEffect(() => {
@@ -561,8 +565,21 @@ export function App({
 
   const leftOpen = tab === 'queue' || tab === 'search';
 
+  usePanelSwipe({
+    enabled: !desktop,
+    shell: shellRef,
+    panel: panelRef,
+    stage: stageRef,
+    open: tab,
+    onBegin: (side) => setLeftPane(side),
+    onSettle: (side, isOpen) => {
+      setLeftPane(side);
+      setTab(isOpen ? side : null);
+    },
+  });
+
   return (
-    <div className="shell" data-testid="app">
+    <div className="shell" data-testid="app" ref={shellRef}>
       <div
         ref={workspaceRef}
         className={desktop ? 'workspace is-split' : leftOpen ? 'workspace list-open' : 'workspace'}
@@ -576,7 +593,7 @@ export function App({
             : undefined
         }
       >
-        <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
+        <aside ref={panelRef} className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
           <div className={leftPane === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
             <Library
               tracks={library}
@@ -606,7 +623,7 @@ export function App({
             />
           </div>
         </aside>
-        <main className="stage">
+        <main ref={stageRef} className="stage">
           <div className="decks">
             {(['A', 'B'] as const).map((id) => (
               <Deck

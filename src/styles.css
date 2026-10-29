@@ -15,6 +15,9 @@
 
 * { box-sizing: border-box; }
 
+html, body { overscroll-behavior-x: none; }
+/* Sideways drags belong to the page (Cola / Buscar swipe), never to the browser's back gesture. */
+.shell { touch-action: pan-y; }
 html, body, #root {
   height: 100%;
   overflow: hidden;

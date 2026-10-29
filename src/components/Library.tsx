@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { EDGE_PX } from '../lib/panel-swipe';
 import type { DeckId, Track } from '../types';
 import { consumeDeckDrop, swipeCommit, trackIsLoaded } from '../lib/library';
 import { QueueSave } from './QueueSave';
@@ -134,6 +135,8 @@ export function TrackRow({
       onPointerDown={(event) => {
         if (leaving.current) return;
         if (event.pointerType === 'mouse' && event.button !== 0) return;
+        // The outer strips of a touch screen belong to the Cola / Buscar panel swipe.
+        if (event.pointerType === 'touch' && (event.clientX <= EDGE_PX || event.clientX >= window.innerWidth - EDGE_PX)) return;
         point.current = { id: event.pointerId, x: event.clientX, y: event.clientY, kind: event.pointerType, mode: 'undecided', dx: 0 };
       }}
       onPointerMove={(event) => {

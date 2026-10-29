@@ -40,6 +40,9 @@ type Props = {
   onStatus: (message: string) => void;
 };
 
+/** How long the position may stand still before each automatic retry (backoff). */
+const WATCH_LIMITS = [4000, 6000, 9000, 13000];
+
 const playerVars = () => ({
   autoplay: 0,
   controls: 0,
@@ -83,6 +86,16 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const readyRef = useRef(false);
   const pendingPlayRef = useRef(false);
   const wantPlayRef = useRef(false);
+  const videoIdRef = useRef(videoId);
+  const loadedIdRef = useRef<string | null>(null);
+  const lastTimeRef = useRef(0);
+  const errorRef = useRef(false);
+  const recoveringUntilRef = useRef(0);
+  const reapplyRateRef = useRef(false);
+  const resumeRef = useRef<{ time: number; play: boolean } | null>(null);
+  const watchRef = useRef({ lastT: -1, stuck: 0, tries: 0, good: 0, force: false });
+  const [gen, setGen] = useState(0);
+  const [reconnecting, setReconnecting] = useState(false);
   const spinRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const joggingRef = useRef(false);
@@ -109,6 +122,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [scrub, setScrub] = useState<number | null>(null);
   const scrubRef = useRef<{ wasPlaying: boolean; seekAt: number; muted: boolean; idle: number | null } | null>(null);
 
+  videoIdRef.current = videoId;
   gainRef.current = gain;
   rateRef.current = playbackRate;
   ratesRef.current = rates;
@@ -128,6 +142,12 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
 
   const startPreroll = (player: YT.Player, nextId: string) => {
     prerollRef.current = 'armed';
+    loadedIdRef.current = nextId;
+    lastTimeRef.current = 0;
+    errorRef.current = false;
+    wantPlayRef.current = false;
+    watchRef.current = { lastT: -1, stuck: 0, tries: 0, good: 0, force: false };
+    setReconnecting(false);
     try {
       player.mute();
       player.loadVideoById({ videoId: nextId, startSeconds: 0 });
@@ -151,9 +171,53 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     setPlaying(false);
   };
 
+  /** The player object is gone or its iframe left the page (remount, tab discard): nothing to call on it. */
+  const playerDead = (player: YT.Player | null): boolean => {
+    if (!player) return true;
+    try {
+      player.getPlayerState();
+      const frame = (player as unknown as { getIframe?: () => HTMLIFrameElement | null }).getIframe?.();
+      return Boolean(frame && !frame.isConnected);
+    } catch {
+      return true;
+    }
+  };
+
+  /** Reload the same video at the last known position and play it. If the player itself is dead, build a new one. */
+  const reconnect = () => {
+    const id = videoIdRef.current;
+    if (!id) return;
+    wantPlayRef.current = true;
+    errorRef.current = false;
+    recoveringUntilRef.current = Date.now() + 4000;
+    watchRef.current.stuck = 0;
+    watchRef.current.lastT = -1;
+    const at = lastTimeRef.current;
+    const player = playerRef.current;
+    if (playerDead(player)) {
+      resumeRef.current = { time: at, play: true };
+      readyRef.current = false;
+      setReady(false);
+      setGen((value) => value + 1);
+      return;
+    }
+    prerollRef.current = 'done';
+    try {
+      applyGain(gainRef.current);
+      player?.loadVideoById({ videoId: id, startSeconds: at });
+      loadedIdRef.current = id;
+      reapplyRateRef.current = true;
+    } catch {
+      /* the watchdog tries again */
+    }
+  };
+
+  const stalledNow = () => errorRef.current || watchRef.current.stuck >= 2000;
+
   // One press always means "play now". While the player is not ready (API or iframe still loading) the intent
   // is kept and applied on ready. While the muted preroll of a freshly loaded track is running, the preroll is
-  // cancelled so its pause at the end can't undo the press.
+  // cancelled so its pause at the end can't undo the press. A stalled, errored or dead player is reloaded at the
+  // last position instead of being asked to play again.
   const requestPlay = () => {
     wantPlayRef.current = true;
     const player = playerRef.current;
@@ -163,6 +227,17 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       return;
     }
     pendingPlayRef.current = false;
+    let state = -2;
+    try {
+      state = player.getPlayerState();
+    } catch {
+      /* dead player */
+    }
+    if (prerollRef.current !== 'armed' && (playerDead(player) || stalledNow() || (state === -1 && loadedIdRef.current))) {
+      watchRef.current.tries = 0;
+      reconnect();
+      return;
+    }
     if (prerollRef.current === 'armed') {
       prerollRef.current = 'done';
       applyGain(gainRef.current);
@@ -177,6 +252,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const requestPause = () => {
     wantPlayRef.current = false;
     pendingPlayRef.current = false;
+    errorRef.current = false;
+    watchRef.current.stuck = 0;
+    setReconnecting(false);
     const player = playerRef.current;
     if (!player || !readyRef.current) {
       setPlaying(false);
@@ -201,7 +279,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       else requestPlay();
       return;
     }
-    if (prerollRef.current === 'armed') {
+    if (prerollRef.current === 'armed' || stalledNow() || playerDead(player)) {
       requestPlay();
       return;
     }
@@ -214,6 +292,70 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     if (state === 1 || (state === 3 && wantPlayRef.current)) requestPause();
     else requestPlay();
   };
+
+  /** While the deck is meant to be playing: if the position stops moving, retry with backoff, keeping the place. */
+  const watchTick = (dt: number) => {
+    const w = watchRef.current;
+    if (!videoIdRef.current || !readyRef.current) return;
+    if (joggingRef.current || scrubRef.current || prerollRef.current === 'armed' || !wantPlayRef.current) {
+      w.stuck = 0;
+      w.lastT = -1;
+      if (!wantPlayRef.current && !errorRef.current) w.tries = 0;
+      setReconnecting((on) => (on ? false : on));
+      return;
+    }
+    const player = playerRef.current;
+    let state = -2;
+    let t = 0;
+    try {
+      if (!player || playerDead(player)) throw new Error('dead');
+      state = player.getPlayerState();
+      t = player.getCurrentTime() || 0;
+    } catch {
+      state = -2;
+    }
+    if (state === -2) {
+      if (w.tries >= WATCH_LIMITS.length) return giveUp();
+      w.tries += 1;
+      setReconnecting(true);
+      reconnect();
+      return;
+    }
+    const moving = state === 1 && w.lastT >= 0 && Math.abs(t - w.lastT) > 0.04;
+    w.lastT = t;
+    if (moving) {
+      w.stuck = 0;
+      w.good += dt;
+      if (w.good > 8000) w.tries = 0;
+      lastTimeRef.current = t;
+      setReconnecting((on) => (on ? false : on));
+      return;
+    }
+    if (state === 0) return;
+    w.good = 0;
+    if (state === 3 && t > 0.3) lastTimeRef.current = t;
+    w.stuck += dt;
+    if (w.stuck >= 1500) setReconnecting((on) => (on ? on : true));
+    const limit = WATCH_LIMITS[Math.min(w.tries, WATCH_LIMITS.length - 1)];
+    if (w.force || w.stuck >= limit) {
+      w.force = false;
+      if (w.tries >= WATCH_LIMITS.length) return giveUp();
+      w.tries += 1;
+      reconnect();
+    }
+  };
+
+  const giveUp = () => {
+    wantPlayRef.current = false;
+    errorRef.current = true; // the next press reloads instead of asking a stuck player to play
+    watchRef.current.stuck = 0;
+    setReconnecting(false);
+    setPlaying(false);
+    onStatus('No se pudo reconectar');
+  };
+
+  const watchRefFn = useRef(watchTick);
+  watchRefFn.current = watchTick;
 
   useImperativeHandle(ref, () => ({
     play() {
@@ -467,9 +609,23 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
               } catch {
                 /* ignore */
               }
-              if (videoId) {
+              const currentId = videoIdRef.current;
+              const resume = resumeRef.current;
+              resumeRef.current = null;
+              if (currentId) {
                 try {
-                  event.target.cueVideoById(videoId);
+                  loadedIdRef.current = currentId;
+                  if (resume) {
+                    prerollRef.current = 'done';
+                    if (resume.play) {
+                      event.target.loadVideoById({ videoId: currentId, startSeconds: resume.time });
+                      reapplyRateRef.current = true;
+                    } else {
+                      event.target.cueVideoById({ videoId: currentId, startSeconds: resume.time });
+                    }
+                  } else {
+                    event.target.cueVideoById(currentId);
+                  }
                 } catch {
                   /* ignore */
                 }
@@ -491,6 +647,20 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
                 return;
               }
               if (prerollRef.current === 'armed') return;
+              if (event.data === 1) {
+                wantPlayRef.current = true;
+                errorRef.current = false;
+                if (reapplyRateRef.current) {
+                  reapplyRateRef.current = false;
+                  try {
+                    event.target.setPlaybackRate(rateRef.current);
+                  } catch {
+                    /* ignore */
+                  }
+                }
+              } else if ((event.data === 2 && Date.now() > recoveringUntilRef.current) || event.data === 0) {
+                wantPlayRef.current = false;
+              }
               setPlaying(event.data === 1);
               try {
                 const data = event.target.getVideoData();
@@ -499,7 +669,17 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
                 /* ignore */
               }
             },
-            onError: () => onStatus('Video bloqueado'),
+            onError: (event) => {
+              // 100, 101 and 150: the video itself can't be played here. Anything else is worth another try.
+              if (event.data === 100 || event.data === 101 || event.data === 150) {
+                wantPlayRef.current = false;
+                setReconnecting(false);
+                onStatus('Video bloqueado');
+                return;
+              }
+              errorRef.current = true;
+              if (wantPlayRef.current) watchRef.current.force = true;
+            },
           },
         });
         playerRef.current = player;
@@ -523,13 +703,13 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     };
     // The player is created once per mounted video frame. videoId changes are cued below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId ? 'on' : 'off']);
+  }, [videoId ? 'on' : 'off', gen]);
 
   useEffect(() => {
     if (!videoId || !ready) return;
     try {
       const current = playerRef.current?.getVideoData()?.video_id;
-      if (current === videoId) return;
+      if (current === videoId || loadedIdRef.current === videoId) return;
       const player = playerRef.current;
       if (player) startPreroll(player, videoId);
     } catch {
@@ -549,6 +729,17 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
       /* ignore */
     }
   }, [playbackRate, ready]);
+
+  useEffect(() => {
+    let last = Date.now();
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      const dt = Math.min(2000, now - last);
+      last = now;
+      watchRefFn.current(dt);
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -648,6 +839,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const waveProgress = id === 'A' ? '#d5ebe4' : '#f0d3b4';
 
   function rewind() {
+    wantPlayRef.current = false;
     try {
       const player = playerRef.current;
       player?.pauseVideo();
@@ -720,11 +912,12 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
         <div className="transport" data-testid={`transport-${id.toLowerCase()}`}>
           <button
             type="button"
-            className="icon-button play-btn tone-play"
+            className={reconnecting ? 'icon-button play-btn tone-play is-reconnecting' : 'icon-button play-btn tone-play'}
             data-testid={`play-${id}`}
-            aria-label={playing ? 'Pausa' : 'Play'}
-            title={playing ? 'Pausa' : 'Play'}
+            aria-label={reconnecting ? 'Reconectando' : playing ? 'Pausa' : 'Play'}
+            title={reconnecting ? 'Reconectando…' : playing ? 'Pausa' : 'Play'}
             aria-pressed={playing}
+            aria-busy={reconnecting}
             disabled={!videoId}
             onClick={requestToggle}
           >

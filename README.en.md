@@ -120,3 +120,9 @@ Under the last song in the queue there is a row of three icons (tooltips only): 
 
 Buscar has two icons to choose what to look for: **Videos** (green) or **Playlists** (blue); switching clears the results. Playlists show cover, title and channel, and the **+** adds the whole thing to the queue through the usual path (`/api/playlist` or your own key, page by page, no duplicates). It uses `search.list` with `type=video` or `type=playlist` (100 quota units per search, same shared key, daily cap and 24 h cache; playlists have their own cache entries) or your own key straight from the browser.
 
+
+## Play and playback stalls
+
+A single press on play always starts: if the player is not ready yet the press is kept and applied as soon as it is; if the freshly loaded track is in its muted preroll, the press cancels it instead of letting the preroll's final pause undo it (it used to need two presses).
+
+While a deck is meant to be playing, a watchdog checks every half second that the position moves. If it stands still (buffering, frozen video, `UNSTARTED`) or YouTube reports a recoverable error (2, 5, …), it reloads the same video with `loadVideoById` at the last position and carries on, with ever longer waits between tries (4, 6, 9 and 13 s). If the player or its iframe is gone, it builds a new one and resumes at the same position. While it reconnects the play button pulses in neon (tooltip “Reconectando…”); when the tries run out a “No se pudo reconectar” toast shows and one press on play tries again. Pressing play on a stuck player reloads it at the last position instead of pausing it. Errors 100, 101 and 150 (video unavailable) are not retried.

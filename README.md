@@ -155,3 +155,9 @@ Debajo de la última canción de la Cola hay una fila con tres iconos (solo tool
 
 Buscar tiene dos iconos para elegir qué buscar: **Videos** (verde) o **Playlists** (azul); cambiar de uno al otro limpia los resultados. Las playlists salen con portada, título y canal, y el **+** las agrega enteras a la Cola con el mismo recorrido de siempre (`/api/playlist` o tu clave propia, por páginas, sin repetidos). Usa `search.list` con `type=video` o `type=playlist` (100 unidades de cuota cada búsqueda, con la misma clave compartida, límite diario y caché de 24 horas; las playlists tienen el suyo) o tu clave propia directo desde el navegador.
 
+
+## Play y cortes de reproducción
+
+Un solo toque en play siempre arranca: si el reproductor todavía no está listo, el toque queda anotado y se aplica apenas lo esté; si el track recién cargado está en su precarga muteada, el toque la cancela en vez de que el pause final lo deshaga (antes había que apretar dos veces).
+
+Mientras un deck tiene que estar sonando, un vigilante mira cada medio segundo que la posición avance. Si queda clavado (buffering, video congelado, `UNSTARTED`) o YouTube da un error recuperable (2, 5, …), recarga el mismo video con `loadVideoById` en la última posición y sigue, con reintentos cada vez más espaciados (4, 6, 9 y 13 s). Si el reproductor o su iframe desaparecieron, crea uno nuevo y retoma en la misma posición. Mientras reconecta, el botón de play pulsa en neón (tooltip «Reconectando…»); si se agotan los intentos aparece el aviso «No se pudo reconectar» y un toque en play vuelve a intentarlo. Un play sobre un reproductor trabado también lo recarga en la última posición en vez de pausarlo. Los errores 100, 101 y 150 (video no disponible) no se reintentan.

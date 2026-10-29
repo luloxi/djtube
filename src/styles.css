@@ -1732,7 +1732,7 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 .ctl-l { display: contents; }
 
 /* Phones: controls sit beside the disc in two tight columns, centered on it, so a thumb aiming at them
-   can't land on the timeline underneath. Left: play over restart. Right: + over the speed readout over −. */
+   can't land on the timeline underneath. Left: + over the speed readout over −. Right: play over restart. */
 @media (max-width: 1023px) {
   .deck .deck-top { flex-direction: row; align-items: stretch; gap: 4px; padding: 0 4px; }
   .deck .transport { display: contents; }
@@ -1750,8 +1750,8 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
     min-height: 0;
     padding: 0;
   }
-  .deck .deck-top .ctl-l { order: 1; }
-  .deck .deck-top .transport .rate { order: 3; flex-direction: column-reverse; }
+  .deck .deck-top .transport .rate { order: 1; flex-direction: column-reverse; }
+  .deck .deck-top .ctl-l { order: 3; }
   .deck .video-slot { order: 2; flex: 1 1 auto; align-items: center; }
   .deck .deck-top .ctl-l .icon-button,
   .deck .deck-top .transport .rate .rate-step,

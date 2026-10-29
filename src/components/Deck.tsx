@@ -80,6 +80,9 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
   const [over, setOver] = useState(false);
   const [apiError, setApiError] = useState(false);
   const prerollRef = useRef<PrerollPhase>('idle');
+  const readyRef = useRef(false);
+  const pendingPlayRef = useRef(false);
+  const wantPlayRef = useRef(false);
   const spinRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const joggingRef = useRef(false);
@@ -148,29 +151,79 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     setPlaying(false);
   };
 
+  // One press always means "play now". While the player is not ready (API or iframe still loading) the intent
+  // is kept and applied on ready. While the muted preroll of a freshly loaded track is running, the preroll is
+  // cancelled so its pause at the end can't undo the press.
+  const requestPlay = () => {
+    wantPlayRef.current = true;
+    const player = playerRef.current;
+    if (!player || !readyRef.current) {
+      pendingPlayRef.current = true;
+      setPlaying(true);
+      return;
+    }
+    pendingPlayRef.current = false;
+    if (prerollRef.current === 'armed') {
+      prerollRef.current = 'done';
+      applyGain(gainRef.current);
+    }
+    try {
+      player.playVideo();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const requestPause = () => {
+    wantPlayRef.current = false;
+    pendingPlayRef.current = false;
+    const player = playerRef.current;
+    if (!player || !readyRef.current) {
+      setPlaying(false);
+      return;
+    }
+    if (prerollRef.current === 'armed') {
+      prerollRef.current = 'done';
+      applyGain(gainRef.current);
+    }
+    try {
+      player.pauseVideo();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Toggle from what the player really does, not from the last React render.
+  const requestToggle = () => {
+    const player = playerRef.current;
+    if (!player || !readyRef.current) {
+      if (pendingPlayRef.current) requestPause();
+      else requestPlay();
+      return;
+    }
+    if (prerollRef.current === 'armed') {
+      requestPlay();
+      return;
+    }
+    let state = -1;
+    try {
+      state = player.getPlayerState();
+    } catch {
+      /* ignore */
+    }
+    if (state === 1 || (state === 3 && wantPlayRef.current)) requestPause();
+    else requestPlay();
+  };
+
   useImperativeHandle(ref, () => ({
     play() {
-      try {
-        playerRef.current?.playVideo();
-      } catch {
-        /* ignore */
-      }
+      requestPlay();
     },
     pause() {
-      try {
-        playerRef.current?.pauseVideo();
-      } catch {
-        /* ignore */
-      }
+      requestPause();
     },
     toggle() {
-      try {
-        const state = playerRef.current?.getPlayerState();
-        if (state === 1) playerRef.current?.pauseVideo();
-        else playerRef.current?.playVideo();
-      } catch {
-        /* ignore */
-      }
+      requestToggle();
     },
     cueTo(seconds: number) {
       const player = playerRef.current;
@@ -391,6 +444,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             onReady: (event) => {
               if (dead) return;
               playerRef.current = event.target;
+              readyRef.current = true;
               setReady(true);
               const iframe = mount.querySelector('iframe');
               if (iframe) {
@@ -416,6 +470,14 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
               if (videoId) {
                 try {
                   event.target.cueVideoById(videoId);
+                } catch {
+                  /* ignore */
+                }
+              }
+              if (pendingPlayRef.current) {
+                pendingPlayRef.current = false;
+                try {
+                  event.target.playVideo();
                 } catch {
                   /* ignore */
                 }
@@ -448,6 +510,8 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
     return () => {
       dead = true;
       created.current = false;
+      readyRef.current = false;
+      pendingPlayRef.current = false;
       setReady(false);
       try {
         playerRef.current?.destroy();
@@ -662,7 +726,7 @@ export const Deck = forwardRef<DeckHandle, Props>(function Deck(props, ref) {
             title={playing ? 'Pausa' : 'Play'}
             aria-pressed={playing}
             disabled={!videoId}
-            onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())}
+            onClick={requestToggle}
           >
             <Icon name={playing ? 'pause' : 'play'} size={18} />
           </button>

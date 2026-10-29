@@ -104,6 +104,8 @@ Each IP has a burst cap on `/api/*` (Workers Rate Limiting, free, per Cloudflare
 
 ## Neon navigation
 
+On touch screens the Cola or Buscar button glows only while its panel is open: closing it returns to the faint resting glow (a tap no longer leaves a sticky `:hover` or focus). 
+
 The app icon (orange circle) shows large in the first-visit intro. Navigation buttons have no fill and are their own neon, distinct from deck A (teal) and deck B (amber): Buscar red. Active lights up with a strong glow; inactive dims with a faint glow.
 
 ## User menu

@@ -139,6 +139,8 @@ Cada IP tiene un tope por ráfaga en `/api/*` (Workers Rate Limiting, gratis, po
 
 ## Navegación en neón
 
+En pantallas táctiles el botón de Cola o Buscar brilla solo mientras su panel está abierto: al cerrarlo vuelve a su brillo tenue (un toque ya no deja el `:hover` ni el foco pegados). 
+
 El ícono de la app (círculo naranja) aparece grande en la introducción de la primera visita. Los botones de navegación no tienen fondo y son un neón propio, distinto del deck A (verde azulado) y del B (ámbar): Buscar rojo. Activo, se enciende con un brillo fuerte; inactivo, queda atenuado con un brillo leve.
 
 ## Menú de usuario

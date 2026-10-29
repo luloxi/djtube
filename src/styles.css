@@ -736,7 +736,21 @@ button[class*="tone-"]:focus-visible,
 .dock .icon-button[class*="tone-"][aria-pressed="false"] {
   opacity: 0.5;
 }
-.dock .icon-button[class*="tone-"][aria-pressed="false"]:hover { opacity: 0.9; }
+@media (hover: hover) {
+  .dock .icon-button[class*="tone-"][aria-pressed="false"]:hover { opacity: 0.9; }
+}
+/* Touch has no real hover: a tap leaves :hover and :focus on the button, which must not light a closed panel's icon. */
+@media (hover: none) {
+  .dock .icon-button[class*="tone-"][aria-pressed="false"],
+  .dock .icon-button[class*="tone-"][aria-pressed="false"]:hover,
+  .dock .icon-button[class*="tone-"][aria-pressed="false"]:focus,
+  .dock .icon-button[class*="tone-"][aria-pressed="false"]:focus-visible,
+  .dock .icon-button[class*="tone-"][aria-pressed="false"]:active {
+    opacity: 0.5;
+    background: transparent;
+    filter: drop-shadow(0 0 1.5px var(--neon-glow));
+  }
+}
 
 .dock .rec {
   display: inline-flex;

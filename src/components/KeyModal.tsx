@@ -151,7 +151,7 @@ export function KeyModal({ hasKey, savedKey, onSave, onClear, onClose }: Props) 
               setRaw(event.target.value);
               setNote(null);
             }}
-            placeholder="AIza…"
+            placeholder="Clave API"
             aria-label="Clave de YouTube Data API"
             autoComplete="off"
             autoCapitalize="off"

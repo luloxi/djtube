@@ -450,17 +450,22 @@ export function App({
     showQueue();
   }
 
-  async function addWholePlaylist(playlistId: string) {
+  async function addWholePlaylist(playlistId: string, deck?: DeckId) {
     const gen = ++playlistGen.current;
     setPlaylistLoading(true);
     setStatus('Agregando…');
     showQueue();
     const queued = new Set(libraryRef.current.map((item) => item.videoId));
     let added = 0;
+    let deckLoaded = false;
     const take = (items: PlaylistItem[]) => {
       if (gen !== playlistGen.current || !items.length) return;
       added += items.length;
       appendTracks(items);
+      if (deck && !deckLoaded) {
+        deckLoaded = true;
+        void loadInto(deck, playlistItemToTrack(items[0]));
+      }
     };
     try {
       added = await walkPlaylistPages((token) => fetchPlaylistPage(playlistId, token, undefined, ownKey), queued, take);
@@ -583,7 +588,7 @@ export function App({
                 setKeyOpen(true);
               }}
               onLimited={explainLimit}
-              onAddPlaylist={(id) => void addWholePlaylist(id)}
+              onAddPlaylist={(id, deck) => void addWholePlaylist(id, deck)}
             />
           </div>
         </aside>

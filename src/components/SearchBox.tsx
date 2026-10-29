@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DeckId, Track } from '../types';
 import { parseYouTubeUrl } from '../lib/youtube';
 import { fetchSearch } from '../lib/yt-key';
+import { normalizeSearchQuery } from '../lib/quota';
 import type { SearchKind } from '../lib/youtube-search';
 import { decodeEntities } from '../lib/html-text';
 import { Icon } from './icons';
@@ -11,6 +12,9 @@ type Item = Track & { channel?: string; playlistId?: string };
 
 const LIMIT = 'Llegaste al tope de búsquedas de hoy.';
 const QUOTA = 'La clave compartida se quedó sin cupo hoy.';
+/** Quiet time after the last keystroke before the search runs by itself. */
+export const AUTO_SEARCH_MS = 3000;
+export const AUTO_SEARCH_MIN_CHARS = 2;
 
 export function SearchBox({
   ownKey,
@@ -25,7 +29,7 @@ export function SearchBox({
   onYouTube: (raw: string) => void;
   onOpenKey: () => void;
   onLimited: (reason: 'limit' | 'quota') => void;
-  onAddPlaylist: (playlistId: string) => void;
+  onAddPlaylist: (playlistId: string, deck: DeckId) => void;
 }) {
   const [mode, setMode] = useState<'loading' | 'ready' | 'nokey' | 'down'>('loading');
   const [query, setQuery] = useState('');
@@ -57,39 +61,51 @@ export function SearchBox({
     };
   }, [ownKey]);
 
+  const seq = useRef(0);
+  const lastKey = useRef('');
+  const timer = useRef<number | null>(null);
+  const [armed, setArmed] = useState(false);
+
+  function disarm() {
+    if (timer.current != null) window.clearTimeout(timer.current);
+    timer.current = null;
+    setArmed(false);
+  }
+
+  useEffect(() => () => {
+    if (timer.current != null) window.clearTimeout(timer.current);
+  }, []);
+
   function takeUrl(raw: string) {
+    disarm();
     setQuery('');
     setItems([]);
     setNote('');
     setHelp(null);
+    lastKey.current = '';
     onYouTube(raw);
   }
 
-  function switchKind(next: SearchKind) {
-    if (next === kind) return;
-    setKind(next);
-    setItems([]);
-    setNote('');
-    setHelp(null);
-  }
-
-  async function search(event: React.FormEvent) {
-    event.preventDefault();
-    const q = query.trim();
+  /** Runs one search. The same text and type is never asked twice in a row. Nothing is ever added from here. */
+  async function runSearch(raw: string, type: SearchKind) {
+    const q = raw.trim();
+    disarm();
     if (!q) return;
-    if (parseYouTubeUrl(q)) {
-      takeUrl(q);
-      return;
-    }
+    const key = `${type}:${normalizeSearchQuery(q)}`;
+    if (key === lastKey.current) return;
     if (mode !== 'ready') {
       setNote(mode === 'nokey' ? 'Sin clave' : 'Sin búsqueda');
       setHelp(mode === 'nokey' ? 'quota' : null);
       setItems([]);
       return;
     }
+    const mine = ++seq.current;
+    lastKey.current = key;
     setNote('');
     setHelp(null);
-    const data = await fetchSearch(q, ownKey, kind);
+    const data = await fetchSearch(q, ownKey, type);
+    if (mine !== seq.current) return;
+    if (!data.ok) lastKey.current = '';
     if (!data.ok && (data.reason === 'limit' || data.reason === 'quota')) {
       setHelp(data.reason);
       setItems([]);
@@ -116,39 +132,77 @@ export function SearchBox({
     setNote(data.items?.length ? '' : 'Nada');
   }
 
+  function switchKind(next: SearchKind) {
+    if (next === kind) return;
+    setKind(next);
+    seq.current += 1;
+    lastKey.current = '';
+    setItems([]);
+    setNote('');
+    setHelp(null);
+    const q = query.trim();
+    if (q && !parseYouTubeUrl(q)) void runSearch(q, next);
+    else disarm();
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    if (parseYouTubeUrl(q)) {
+      takeUrl(q);
+      return;
+    }
+    void runSearch(q, kind);
+  }
+
+  function typed(value: string) {
+    setQuery(value);
+    disarm();
+    const q = value.trim();
+    if (q.length < AUTO_SEARCH_MIN_CHARS || parseYouTubeUrl(q) || mode !== 'ready') return;
+    if (`${kind}:${normalizeSearchQuery(q)}` === lastKey.current) return;
+    setArmed(true);
+    timer.current = window.setTimeout(() => void runSearch(value, kind), AUTO_SEARCH_MS);
+  }
+
   const looksLikeUrl = Boolean(parseYouTubeUrl(query));
   const canSearch = mode === 'ready' || looksLikeUrl;
   const helpText = help === 'limit' ? LIMIT : help === 'quota' ? QUOTA : '';
 
   return (
     <section className="panel" aria-label="Buscar">
-      <form className="search-form" onSubmit={search}>
-        <input
-          type="search"
-          placeholder="URL o búsqueda"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onPaste={(event) => {
-            const text = event.clipboardData.getData('text') || event.clipboardData.getData('text/plain');
-            if (!parseYouTubeUrl(text)) return;
-            event.preventDefault();
-            takeUrl(text);
-          }}
-          aria-label="Buscar en YouTube"
-          data-testid="search-hint"
-          enterKeyHint="search"
-        />
-        <div className="kind-toggle" role="group" aria-label="Tipo">
-          <button type="button" className="icon-button tone-play" aria-pressed={kind === 'video'} aria-label="Videos" title="Videos" data-testid="kind-video" onClick={() => switchKind('video')}>
-            <Icon name="play" size={18} />
-          </button>
-          <button type="button" className="icon-button tone-queue" aria-pressed={kind === 'playlist'} aria-label="Playlists" title="Playlists" data-testid="kind-playlist" onClick={() => switchKind('playlist')}>
-            <Icon name="playlist" size={18} />
-          </button>
+      <form className="search-form" onSubmit={submit}>
+        <div className="search-field">
+          <input
+            type="search"
+            placeholder="URL o búsqueda"
+            value={query}
+            onChange={(event) => typed(event.target.value)}
+            onPaste={(event) => {
+              const text = event.clipboardData.getData('text') || event.clipboardData.getData('text/plain');
+              if (!parseYouTubeUrl(text)) return;
+              event.preventDefault();
+              takeUrl(text);
+            }}
+            aria-label="Buscar en YouTube"
+            data-testid="search-hint"
+            enterKeyHint="search"
+          />
+          {armed ? <span className="search-timer" key={query} data-testid="search-timer" aria-hidden="true" style={{ animationDuration: `${AUTO_SEARCH_MS}ms` }} /> : null}
         </div>
-        <button type="submit" className="icon-button tone-search search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar">
+        <button type="submit" className="icon-button tone-search search-go" disabled={!query.trim() || !canSearch} aria-label="Buscar" title="Buscar" data-testid="search-go">
           <Icon name="search" />
         </button>
+        <div className="kind-switch" role="radiogroup" aria-label="Qué buscar" data-kind={kind} title="Videos o playlists">
+          <span className="kind-pill" aria-hidden="true" />
+          <button type="button" role="radio" aria-checked={kind === 'video'} className="kind-opt" data-testid="kind-video" title="Buscar videos" onClick={() => switchKind('video')}>
+            Videos
+          </button>
+          <button type="button" role="radio" aria-checked={kind === 'playlist'} className="kind-opt" data-testid="kind-playlist" title="Buscar playlists" onClick={() => switchKind('playlist')}>
+            Playlists
+          </button>
+        </div>
       </form>
       {helpText ? (
         <p className="hint" data-testid="search-limit">
@@ -182,18 +236,21 @@ export function SearchBox({
   );
 }
 
-function PlaylistRow({ item, onAdd }: { item: Item; onAdd: (playlistId: string) => void }) {
+function PlaylistRow({ item, onAdd }: { item: Item; onAdd: (playlistId: string, deck: DeckId) => void }) {
   const title = decodeEntities(item.title);
   const id = item.playlistId ?? '';
   return (
     <div className="pl-row" data-testid="playlist-row">
+      <button type="button" className="track-add track-add-a" aria-label={`Playlist en deck A: ${title}`} title="A: primer tema al deck A, el resto a la cola" data-testid="playlist-a" onClick={() => onAdd(id, 'A')}>
+        A
+      </button>
       {item.thumbnail ? <img src={item.thumbnail} alt="" /> : <span className="thumb" />}
       <p className="pl-name" title={title}>
         <span>{title}</span>
         {item.channel ? <small>{decodeEntities(item.channel)}</small> : null}
       </p>
-      <button type="button" className="icon-button tone-queue" aria-label={`Agregar playlist: ${title}`} title="Agregar a la cola" data-testid="playlist-add" onClick={() => onAdd(id)}>
-        <Icon name="plus" size={20} />
+      <button type="button" className="track-add track-add-b" aria-label={`Playlist en deck B: ${title}`} title="B: primer tema al deck B, el resto a la cola" data-testid="playlist-b" onClick={() => onAdd(id, 'B')}>
+        B
       </button>
     </div>
   );

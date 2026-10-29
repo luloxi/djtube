@@ -1342,7 +1342,7 @@ button.text-link:hover:not(:disabled) {
   .deck[data-deck="A"] { box-shadow: inset 0 3px 0 var(--teal); }
   .deck[data-deck="B"] { box-shadow: inset 0 3px 0 var(--amber); }
 
-  .track {
+  .track, .pl-row {
     grid-template-columns: var(--hit) 56px minmax(0, 1fr) var(--hit);
     grid-template-areas: "a thumb name b";
     gap: 4px;
@@ -1617,15 +1617,82 @@ button.sheet-backdrop:hover:not(:disabled):not([class*="tone-"]):not(.split-bar)
 .confirm-sheet { width: min(260px, 100%); align-items: center; text-align: center; }
 .confirm-sheet p { margin: 8px 0 0; font-size: 15px; }
 .confirm-actions { display: flex; gap: 24px; justify-content: center; }
-.kind-toggle { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
-.kind-toggle .icon-button[aria-pressed="true"] { filter: drop-shadow(0 0 2px var(--neon)) drop-shadow(0 0 9px var(--neon-glow)); opacity: 1; }
-.kind-toggle .icon-button[aria-pressed="false"] { opacity: 0.45; }
-.kind-toggle .icon-button[aria-pressed="false"]:hover { opacity: 0.9; }
-.pl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 2px; }
+.pl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto; grid-template-areas: "thumb name a b"; gap: 6px; align-items: center; padding: 2px; }
+.pl-row img, .pl-row .thumb { grid-area: thumb; }
+.pl-row .pl-name { grid-area: name; }
 .pl-row img, .pl-row .thumb { width: 56px; height: 32px; object-fit: cover; background: #000; }
 .pl-name { margin: 0; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
 .pl-name span, .pl-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pl-name small { color: var(--muted); font-size: 11px; }
+
+.play-btn.is-reconnecting { animation: neon-reconnect 0.9s ease-in-out infinite; }
+@keyframes neon-reconnect {
+  0%, 100% { opacity: 0.45; filter: drop-shadow(0 0 1px var(--neon-glow)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 3px var(--neon)) drop-shadow(0 0 10px var(--neon-glow)); }
+}
+@media (prefers-reduced-motion: reduce) { .play-btn.is-reconnecting { animation: none; opacity: 0.7; } }
+
+/* Search: field with a quiet-time bar, the search button, then a two-option switch */
+.search-form { flex-wrap: nowrap; }
+.search-field { position: relative; flex: 1 1 0; min-width: 0; }
+.search-field input { width: 100%; }
+.search-timer {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: #ff4d5e;
+  box-shadow: 0 0 6px rgba(255, 77, 94, 0.9);
+  transform-origin: left center;
+  animation: search-countdown 3s linear forwards;
+  pointer-events: none;
+}
+@keyframes search-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.kind-switch {
+  --neon: #3dff6e;
+  --neon-glow: rgba(61, 255, 110, 0.9);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 0 0 auto;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.kind-switch[data-kind="playlist"] { --neon: #4d8dff; --neon-glow: rgba(77, 141, 255, 0.9); }
+.kind-pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border: 1px solid var(--neon);
+  border-radius: 999px;
+  box-shadow: 0 0 8px var(--neon-glow), inset 0 0 6px var(--neon-glow);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  pointer-events: none;
+}
+.kind-switch[data-kind="playlist"] .kind-pill { transform: translateX(100%); }
+.kind-opt {
+  position: relative;
+  z-index: 1;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kind-opt[aria-checked="true"] { color: var(--neon); text-shadow: 0 0 6px var(--neon-glow); }
+.kind-opt:hover:not([aria-checked="true"]) { color: var(--text); background: transparent; }
+@media (max-width: 460px) { .kind-opt { padding: 0 7px; font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { .kind-pill { transition: none; } .search-timer { animation-duration: 3s; } }
 
 .play-btn.is-reconnecting { animation: neon-reconnect 0.9s ease-in-out infinite; }
 @keyframes neon-reconnect {

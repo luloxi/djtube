@@ -355,6 +355,9 @@ export function App({
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      // Inside a popup the keys belong to the popup. Space on a focused button or link activates that control.
+      if (target?.closest?.('[role="dialog"]')) return;
+      if (event.code === 'Space' && target?.closest?.('button, a, summary, [role="radio"], [role="menuitem"]')) return;
       if (event.code === 'Space') {
         event.preventDefault();
         if (event.repeat) return;

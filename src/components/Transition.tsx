@@ -16,6 +16,10 @@ type Props = {
   onGlide: () => void;
 };
 
+const GLIDE_MIN = 1;
+const GLIDE_MAX = 60;
+const clampSeconds = (value: number) => Math.min(GLIDE_MAX, Math.max(GLIDE_MIN, value));
+
 export function Transition({ x, gainA, gainB, volumeA, volumeB, seconds, onSeconds, onVolumeA, onVolumeB, onX, onGlide }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const glideDrag = useRef<{ y: number; value: number } | null>(null);
@@ -38,39 +42,62 @@ export function Transition({ x, gainA, gainB, volumeA, volumeB, seconds, onSecon
           <button type="button" className="icon-button" onClick={onGlide} title="Auto" aria-label="Auto">
             <Icon name="auto" />
           </button>
-          <div
-            className="glide-sec"
-            data-testid="glide-seconds"
-            data-value={seconds}
-            role="slider"
-            tabIndex={0}
-            title="Segundos"
-            aria-label="Segundos"
-            aria-valuemin={1}
-            aria-valuemax={60}
-            aria-valuenow={seconds}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              glideDrag.current = { y: event.clientY, value: seconds };
-            }}
-            onPointerMove={(event) => {
-              const drag = glideDrag.current;
-              if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-              const delta = Math.round((drag.y - event.clientY) / 10);
-              onSeconds(Math.min(60, Math.max(1, drag.value + delta)));
-            }}
-            onPointerUp={() => {
-              glideDrag.current = null;
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-              event.preventDefault();
-              event.stopPropagation();
-              const delta = event.key === 'ArrowUp' ? 1 : -1;
-              onSeconds(Math.min(60, Math.max(1, seconds + delta)));
-            }}
-          >
-            {seconds}s
+          <div className="rate glide-rate">
+            <button
+              type="button"
+              className="icon-button rate-step tone-speed"
+              data-testid="glide-less"
+              aria-label="Menos segundos"
+              title="Menos segundos"
+              disabled={seconds <= GLIDE_MIN}
+              onClick={() => onSeconds(clampSeconds(seconds - 1))}
+            >
+              <Icon name="minus" size={16} />
+            </button>
+            <div
+              className="rate-value tone-speed glide-sec"
+              data-testid="glide-seconds"
+              data-value={seconds}
+              role="slider"
+              tabIndex={0}
+              title="Segundos"
+              aria-label="Segundos"
+              aria-valuemin={GLIDE_MIN}
+              aria-valuemax={GLIDE_MAX}
+              aria-valuenow={seconds}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                glideDrag.current = { y: event.clientY, value: seconds };
+              }}
+              onPointerMove={(event) => {
+                const drag = glideDrag.current;
+                if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+                const delta = Math.round((drag.y - event.clientY) / 10);
+                onSeconds(clampSeconds(drag.value + delta));
+              }}
+              onPointerUp={() => {
+                glideDrag.current = null;
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+                event.preventDefault();
+                event.stopPropagation();
+                onSeconds(clampSeconds(seconds + (event.key === 'ArrowUp' ? 1 : -1)));
+              }}
+            >
+              {seconds}s
+            </div>
+            <button
+              type="button"
+              className="icon-button rate-step tone-speed"
+              data-testid="glide-more"
+              aria-label="Más segundos"
+              title="Más segundos"
+              disabled={seconds >= GLIDE_MAX}
+              onClick={() => onSeconds(clampSeconds(seconds + 1))}
+            >
+              <Icon name="plus" size={16} />
+            </button>
           </div>
           <strong data-testid="gain-b" data-value={formatPercent(gainB)}>
             B {formatPercent(gainB)}

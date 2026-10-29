@@ -662,14 +662,8 @@ button[class*="tone-"]:focus-visible,
 .xfade-meta strong:first-child { margin-right: auto; }
 .xfade-meta strong:last-child { margin-left: auto; }
 
-.glide-sec {
-  width: auto;
-  min-width: 42px;
-  padding: 0 6px;
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  touch-action: none;
-}
+/* The seconds value is drawn by .rate-value like the playback speed; this one is dragged up and down. */
+.glide-sec { touch-action: none; }
 
 .fader-track {
   position: relative;

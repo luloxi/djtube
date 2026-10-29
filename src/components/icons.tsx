@@ -11,10 +11,7 @@ export type IconName =
   | 'admin'
   | 'sign-out'
   | 'download'
-  | 'upload'
   | 'search'
-  | 'queue'
-  | 'cuts'
   | 'trash'
   | 'user'
   | 'chevron-left'
@@ -26,8 +23,6 @@ export type IconName =
   | 'x'
   | 'mail'
   | 'code'
-  | 'prepare'
-  | 'decks'
   | 'disc'
   | 'viz'
   | 'mic'
@@ -35,7 +30,6 @@ export type IconName =
   | 'reset'
   | 'reverb'
   | 'bell'
-  | 'edit'
   | 'key';
 
 const ICONS: Record<IconName, ReactNode> = {
@@ -75,36 +69,10 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="M5 21h14" />
     </>
   ),
-  upload: (
-    <>
-      <path d="M12 21V9" />
-      <path d="m7 13 5-5 5 5" />
-      <path d="M5 3h14" />
-    </>
-  ),
   search: (
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
-    </>
-  ),
-  queue: (
-    <>
-      <path d="M8 6h13" />
-      <path d="M8 12h13" />
-      <path d="M8 18h13" />
-      <path d="M3 6h.01" />
-      <path d="M3 12h.01" />
-      <path d="M3 18h.01" />
-    </>
-  ),
-  cuts: (
-    <>
-      <circle cx="6" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M20 4 8.1 15.9" />
-      <path d="m8.1 8.1 4 4" />
-      <path d="m14.5 14.5 5.5 5.5" />
     </>
   ),
   trash: (
@@ -155,21 +123,6 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="m16 8 4 4-4 4" />
     </>
   ),
-  prepare: (
-    <>
-      <path d="M4 7h10" />
-      <path d="M4 12h16" />
-      <path d="M4 17h7" />
-      <circle cx="16" cy="7" r="2" />
-      <circle cx="8" cy="17" r="2" />
-    </>
-  ),
-  decks: (
-    <>
-      <rect x="3" y="6" width="7" height="12" rx="1" />
-      <rect x="14" y="6" width="7" height="12" rx="1" />
-    </>
-  ),
   viz: (
     <>
       <path d="M4 10v4" />
@@ -215,12 +168,6 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </>
-  ),
-  edit: (
-    <>
-      <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
-      <path d="m13.5 6.5 4 4" />
     </>
   ),
   key: (

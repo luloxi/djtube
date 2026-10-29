@@ -2,11 +2,11 @@
 
 Dos videos de YouTube, un fader. Mezcla a oído: el crossfader no es una curva de potencia constante, en el centro suenan los dos al 100%.
 
-La primera vez pregunta **Preparar** o **DJ**. No conviven. Preparar es la lista de cortes. No hay pads, ni hot cues, ni captura de audio. DJ es los dos decks y el mixer. La elección queda en `djtube-mode` y se cambia desde la barra de abajo. Si algo está sonando, ir a Preparar pide confirmación porque corta la música.
+DJTube abre directo en los dos decks y el mixer. No hay pantalla de modos, ni cortes, ni pads, ni hot cues, ni captura de audio. La primera vez aparece una introducción con el ícono de la app que sugiere conseguir tu propia clave de YouTube para tener más búsquedas (un botón abre la hoja «Clave de YouTube», el otro la cierra); queda descartada en `djtube-intro`.
 
-La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: cola y búsqueda comparten el panel izquierdo y se alternan con iconos (no van apiladas). En DJ el volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: modo, clave de YouTube, admin (solo el dueño) y la cuenta.
+La mezcla ocupa todo el viewport (`100dvh`), de borde a borde, sin título ni barra superior. Desde 1024px los decks van lado a lado: el panel izquierdo es Buscar, con la cola de temas debajo del cuadro de búsqueda (no hay botón ni encabezado de Cola). En DJ el volumen de A, el crossfader y el volumen de B son un solo bloque debajo de los decks. Abajo hay una barra de iconos: Buscar (en el móvil), cámara y voz (escritorio) y la cuenta.
 
-En el móvil los dos decks van apilados, con fader y play a la vista, y una raya de color que separa A, B y el fader. Con el disco apagado la miniatura es 16:9; prendido, el video llena el círculo más grande del deck. Cola y búsqueda son dos botones grandes al centro de la barra; cortes a un lado. En las filas, A y B van a izquierda y derecha con el color del deck. Si la pantalla es alta, un recorte de la cola queda a la vista. En horizontal, los decks vuelven a ir lado a lado.
+En el móvil los dos decks van apilados, con fader y play a la vista, y una raya de color que separa A, B y el fader. Con el disco apagado la miniatura es 16:9; prendido, el video llena el círculo más grande del deck. Buscar es un botón grande al centro de la barra; abre la búsqueda con la cola debajo, a pantalla completa. En las filas, A y B van a izquierda y derecha con el color del deck. En horizontal, los decks vuelven a ir lado a lado.
 
 ## Mezclar
 
@@ -23,9 +23,9 @@ En el móvil los dos decks van apilados, con fader y play a la vista, y una raya
 
 Atajos: `espacio` play/pausa de ambos, `Q` deck A, `W` deck B, `←` `→` el fader, `shift` salta más. No actúan si estás escribiendo en un campo.
 
-## Cortes
+## Reproductor
 
-El audio y el video de YouTube no se capturan, no se graban y no se descargan. Suena solo el reproductor oficial embebido. Preparar es la lista de cortes (nombre y tiempos). No hay pestaña `/sync`.
+El audio y el video de YouTube no se capturan, no se graban y no se descargan. Suena solo el reproductor oficial embebido. No hay pestaña `/sync`.
 
 No hay BPM, ni TAP, ni «entrar en beat», ni grilla: se mezcla de oído. YouTube solo tiene velocidades discretas. Los avisos son un toast corto.
 
@@ -35,15 +35,13 @@ El micrófono de la barra (solo en escritorio; no aparece en celulares ni tablet
 
 En escritorio (1024px y puntero fino) la cola, los dos decks y el mixer son una sola grilla. Arrastrar un borde reparte el lugar: la cola más ancha achica los dos decks, un deck más ancho achica al otro, el mixer más alto achica la fila de decks. Nada se sale de la mesa ni se pisa. Al cambiar el tamaño de la ventana, lo guardado se vuelve a encajar, también si venía de un layout viejo más grande que la pantalla. La cámara, si está prendida, flota encima y también queda dentro de la mesa. El layout queda en `djtube-layout`. **Restablecer** está en la cuenta. La barra de abajo no se esconde. En el teléfono la grilla fija no se mueve.
 
-Los cortes se hacen solo en Preparar (modo edición), nunca en DJ (producción): la onda de los decks solo explora el tema, no selecciona ni guarda. En la lista de Cortes puedes buscar, renombrar, reabrir para ajustar, borrar, exportar e importar JSON. No se descarga el audio del corte.
-
-La cola se puede vaciar: no saca los temas que están en A o en B. Deslizar una fila a izquierda o derecha (dedo o mouse) también la quita, con una salida corta y un aviso **deshacer**. Si el tema está en A o en B, la fila vuelve sola.
+No hay botón de vaciar la cola. Deslizar una fila a izquierda o derecha (dedo o mouse) también la quita, con una salida corta y un aviso **deshacer**. Si el tema está en A o en B, la fila vuelve sola.
 
 Admin se abre encima de la mezcla, sin desmontar los decks. El dueño ve un contador de pedidos de uso sin límite en el icono (se consulta cada tanto). La campana, en el menú de quien ya entró, activa el push en ese teléfono. Un pedido nuevo avisa al dueño. Al marcarlo sin límite, si esa persona se suscribió, también le llega un push, y un mail por Resend desde `DJTube <no-responder@lulox.com.ar>` (o `APPROVAL_FROM`). Si el mail falla, se anota en el log y el cambio queda igual.
 
 En el menú de cuenta: [Contacto](https://lulox.com.ar/contacto) y el [repo](https://github.com/luloxi/djtube). Se puede instalar como PWA (manifiesto + iconos + service worker). El icono es un círculo naranja con dos puntos azules de ojos y un triángulo de play azul de boca (`public/djtube.svg`, el mismo del portfolio): 192, 512 y uno maskable sobre naranja liso con margen. La cara está centrada en vertical (mismo margen arriba y abajo del disco); `node scripts/make-icons.mjs` regenera los PNG. En Android, si la app ya estaba instalada, hay que reinstalarla para ver el icono nuevo. Un aviso ofrece instalar, cerrar, o no mostrar más.
 
-Los cortes se quedan en este navegador. Para mezclar no hace falta entrar.
+La cola se queda en este navegador. Para mezclar no hace falta entrar.
 
 ## Acceso
 
@@ -122,11 +120,11 @@ Cada IP tiene un tope por ráfaga en `/api/*` (Workers Rate Limiting, gratis, po
 
 ## Límites
 
-- No se separa, guarda ni descarga el audio o el video de YouTube. La onda es una guía para marcar un corte, no el audio del tema.
+- No se separa, guarda ni descarga el audio o el video de YouTube. La onda es solo una guía de posición, no el audio del tema.
 - YouTube solo acepta las velocidades que expone el player.
 - La playlist pública se recorre de a páginas (Data API o la continuación de YouTube). No hay tope de 50 en la cola.
-- No hay archivo de audio de un corte. Sí se puede bajar un `.txt` con los enlaces de la cola.
-- No hay EQ. La cola y los cortes quedan en este navegador.
+- Sí se puede bajar un `.txt` con los enlaces de la cola.
+- No hay EQ. La cola queda en este navegador.
 - La clave compartida tiene tope diario (20 anónimo, 50 con sesión). La caché no cuenta.
 
 ## Guardar en YouTube
@@ -135,13 +133,7 @@ Cada IP tiene un tope por ráfaga en `/api/*` (Workers Rate Limiting, gratis, po
 
 ## Navegación en neón
 
-El ícono de la app (círculo naranja) aparece en la primera pantalla, donde se elige entre Preparar y DJ, y al comienzo de la barra de abajo. Los botones de navegación no tienen fondo: cada uno es un neón propio y ninguno comparte tono con el deck A (verde azulado) ni con el B (ámbar): Cola azul, Buscar rojo, Preparar amarillo, DJ cian. El que está activo se enciende con su color y un brillo fuerte; los demás quedan atenuados con un brillo leve.
-
-## Cortar (Preparar)
-
-En Preparar elegís la canción: pegás un enlace o buscás, o tocás una de la cola. Se abre un editor a pantalla completa que reparte la canción en filas de 10 s, como líneas de texto, con una marca por segundo y el tiempo al comienzo de cada fila. Arrastrá (mouse o dedo) de un punto a otro, aunque pase por varias filas, para marcar el corte; cerca de los bordes de la pantalla se desplaza solo. Los dos extremos se ajustan arrastrando sus puntas. Un toque sin arrastrar mueve el cabezal. El botón de play escucha solo la selección y se frena al llegar al final. Se guarda con un nombre propio (si queda vacío se usa «canción m:ss»). En la lista de Cortes, el lápiz renombra en el lugar (Enter guarda, Esc cancela) y las tijeras reabren el corte para ajustarlo. Los cortes viven en este navegador (IndexedDB) y se exportan o importan en JSON.
-
-La señal de audio de YouTube no se puede leer desde la página, así que las filas muestran tiempo y no una onda real.
+El ícono de la app (círculo naranja) aparece grande en la introducción de la primera visita. Los botones de navegación no tienen fondo y son un neón propio, distinto del deck A (verde azulado) y del B (ámbar): Buscar rojo. Activo, se enciende con un brillo fuerte; inactivo, queda atenuado con un brillo leve.
 
 ## Menú de usuario
 

@@ -1,4 +1,4 @@
-import type { DeckModel, Highlight, SessionState, Track } from '../types';
+import type { DeckModel, SessionState, Track } from '../types';
 
 const DB_NAME = 'djtube';
 const DB_VERSION = 4;
@@ -44,23 +44,6 @@ export async function saveLibrary(tracks: Track[]): Promise<void> {
     await withStore('library', 'readwrite', (store) => store.put(tracks, 'tracks'));
   } catch {
     /* private mode or quota — keep the in-memory queue */
-  }
-}
-
-export async function loadHighlights(): Promise<Highlight[]> {
-  try {
-    const value = await withStore<Highlight[] | undefined>('highlights', 'readonly', (store) => store.get('all'));
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function saveHighlights(highlights: Highlight[]): Promise<void> {
-  try {
-    await withStore('highlights', 'readwrite', (store) => store.put(highlights, 'all'));
-  } catch {
-    /* keep memory */
   }
 }
 

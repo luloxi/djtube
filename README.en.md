@@ -2,15 +2,15 @@
 
 Two YouTube videos, one fader. You beatmatch by ear. The transition is not constant-power: at the center both decks stay at 100%. Far left is only A, far right is only B. Each deck has its own volume; the percentages on the fader are transition × volume.
 
-The first visit asks for **Preparar** or **DJ**. They never show together. Preparar is the highlight list. There are no pads, no hot cues, and no audio capture. DJ is the two decks and the mixer. The choice is stored in `djtube-mode` and switched from the bottom bar. If something is playing, going to Preparar asks for confirmation because it stops the music.
+DJTube opens straight into the two decks and the mixer. There is no mode screen, no cuts, no pads, no hot cues, and no audio capture. The first visit shows an intro with the app icon that suggests getting your own YouTube key for more searches (one button opens the “Clave de YouTube” sheet, the other closes it); once dismissed it is remembered in `djtube-intro`.
 
-The mixer fills the viewport (`100dvh`), edge to edge, with no title and no top bar. From 1024px the decks sit side by side: queue and search share the left slot and switch with icons (not stacked). In DJ, volume A, the crossfader, and volume B are one block under the decks. A bottom icon bar holds the mode, the YouTube key, admin (owner only), and the account menu.
+The mixer fills the viewport (`100dvh`), edge to edge, with no title and no top bar. From 1024px the decks sit side by side: the left slot is Buscar, with the track queue under the search box (no Cola button or heading). In DJ, volume A, the crossfader, and volume B are one block under the decks. A bottom icon bar holds Buscar (on phones), camera and voice (desktop), and the account menu.
 
-On a phone the decks stack with the fader and play in the first screen, and a color edge between A, B, and the fader. With the disc off the picture is 16:9; with it on, the video fills the largest circle in the deck. Queue and search are two large centered buttons; highlights sit with the rest of the dock. In the list, A and B sit on the left and right with the deck colors. A queue strip appears only when the viewport is tall enough. In landscape the decks sit side by side again.
+On a phone the decks stack with the fader and play in the first screen, and a color edge between A, B, and the fader. With the disc off the picture is 16:9; with it on, the video fills the largest circle in the deck. Buscar is one large centered button; it opens search full screen with the queue under it. In the list, A and B sit on the left and right with the deck colors. In landscape the decks sit side by side again.
 
 **Buscar** is the only way in. Paste a video URL and it goes to the queue. Paste a playlist URL (`list=`, including `watch?v=…&list=…`, music.youtube.com and youtu.be) and a small modal asks **Agregar toda la lista** or **Solo esta canción** (only when the URL also has a video); X, a click outside, or Escape closes it and adds nothing. The whole list is fetched page by page with no 50-track limit (the Worker's `/api/playlist` uses the shared Data API key when the quota allows, else YouTube's own continuation), in order, skipping duplicates and private or unavailable videos, with a thin loading bar and a toast like “N temas agregados”. Plain text searches use that shared key, or a key stored only in this browser (see below). Drag or tap A/B on a row. Swipe a row left or right (touch or mouse) to remove it: it slides out and a short **deshacer** toast puts it back. A row loaded on A or B snaps back and stays. At the bottom of the queue, **Guardar cola** opens a small sheet: **Descargar lista de links** (a `djtube-cola-YYYY-MM-DD.txt` with title, link and a blank line per track — a list of links, not the audio) or **Guardar en YouTube** (a private playlist, name editable; progress N/M; see “Save to YouTube” below; “Abrir en YouTube” links with `watch_videos` in chunks of 50 are always there as a fallback). On desktop and in mobile landscape each deck keeps one row of equal-height controls: play, rewind, then − rate +. In mobile portrait (including widths around 360 and 412) those controls are exactly two rows of the same button size: play and rewind, then − rate + underneath. The disc/video view toggle is a neon pink waveform icon at the top right of each deck's header (tooltip on hover and long-press); on a phone it hides while the queue or search is open. There is one − and one +, and no « » nudge buttons. The deck row has no TAP, BPM, waveform, sync, or analyze control. Tapping the rate value opens a compact grid with every YouTube speed at once, always inside the viewport and never scrolling; tap one to set it and close it (an outside tap or Escape also closes it). There is no swipe or drag to change speed (− and + and the left/right keys still work). Dragging the disc seeks. The iframe has `fs: 0` and does not take pointer events, so YouTube fullscreen stays off. **Auto** next to the fader glides A↔B in 3 s by default; drag the seconds. The round-arrow control pauses and seeks to 0:00. Buttons have no fill. Each icon is neon by role: play green, rewind violet, speed orange, the visualization toggle pink. They glow slightly at rest and more on hover, focus, and when on; they never turn black or grey. Loading a track muted-prerolls it so play starts tighter. Controls are icons, with the words in the tooltip and `aria-label`. Status text is a short toast. There is no analyze button and no waveform sync icon on the deck, and no hot-cue row.
 
-YouTube audio and video are not captured, recorded, or downloaded. Playback is only the official embedded player. Preparar is the highlight list (name and times). There is no `/sync` tab.
+YouTube audio and video are not captured, recorded, or downloaded. Playback is only the official embedded player. There is no `/sync` tab.
 
 There is no BPM, TAP, “enter on beat”, or beat grid: you mix by ear. YouTube rates are discrete. Status messages are a short toast.
 
@@ -22,13 +22,11 @@ On a desktop (1024px and a fine pointer) the queue, the two decks, and the mixer
 
 Each deck's waveform is not text-selectable. Press and drag on it to scrub: while the deck plays you hear short bursts at the pointer (like fast rewind or forward) and it goes silent when the pointer rests; a paused deck seeks silently. On release the playhead stays where you let go and playback continues from there (or stays paused). Mouse and touch. YouTube titles are shown as plain text: `&#39;`, `&amp;` and other entities are decoded (no `innerHTML`), including already-saved queue items.
 
-Cuts are made only in Preparar (edit mode), never in DJ (production): the deck waveform only scrubs, it does not select or save. In the Cortes list you can search, rename, reopen to adjust, delete, export, or import JSON. The cut's audio is not downloaded.
-
-Clear list keeps whatever is loaded on A or B. Admin opens as a sheet over the mixer so playback is not torn down. The owner sees a badge for unlimited-search requests on the admin icon (polled). The bell, for someone already signed in, opts this phone into Web Push. A new request notifies the owner's subscriptions. Marking someone unlimited also pushes that person if they subscribed, and sends mail through Resend from `DJTube <no-responder@lulox.com.ar>` (or `APPROVAL_FROM`). A failed send is logged and does not undo the change.
+There is no clear-queue button. Admin opens as a sheet over the mixer so playback is not torn down. The owner sees a badge for unlimited-search requests on the admin icon (polled). The bell, for someone already signed in, opts this phone into Web Push. A new request notifies the owner's subscriptions. Marking someone unlimited also pushes that person if they subscribed, and sends mail through Resend from `DJTube <no-responder@lulox.com.ar>` (or `APPROVAL_FROM`). A failed send is logged and does not undo the change.
 
 The account menu has [contact](https://lulox.com.ar/contacto) and the [repo](https://github.com/luloxi/djtube). The app is installable (manifest, icons, a tiny service worker) with a dismissible prompt (`Cerrar` / `No mostrar más`). The installed icon is an orange circle with two blue dot eyes and a blue play triangle as the mouth (`public/djtube.svg`, also in the portfolio): 192, 512, and a maskable 512 on solid orange with safe padding. The face is vertically centered (equal padding above and below on the disc); `node scripts/make-icons.mjs` regenerates the PNGs. On Android, an already installed app has to be reinstalled before the new icon shows up.
 
-Highlights stay in the browser. Mixing does not require a sign-in.
+The queue stays in the browser. Mixing does not require a sign-in.
 
 Live: https://djtube.lucianoolivabianco.workers.dev and, once the custom domain is attached, https://dj.lulox.com.ar. `workers.dev` stays.
 
@@ -88,7 +86,7 @@ Do not commit secrets. The D1 database is `djtube`, binding `DB`. The unlimited-
 
 Why this was written from scratch: [DECISIONS.md](DECISIONS.md). Spanish guide: [README.md](README.md).
 
-Limits: YouTube audio and video are not separated, stored, or downloaded; the waveform is a guide for a highlight, not the track; YouTube quantizes speed; backward jog pauses because YouTube cannot reverse; public playlists are walked page by page with no 50-track cap; a highlight has no audio file (a `.txt` of links is fine); no EQ. The queue and highlights stay in the browser. The shared key is capped at 20 anonymous searches a day and 50 for a signed-in account. Cache hits are free.
+Limits: YouTube audio and video are not separated, stored, or downloaded; the waveform is only a position guide, not the track; YouTube quantizes speed; backward jog pauses because YouTube cannot reverse; public playlists are walked page by page with no 50-track cap; a `.txt` of links is fine; no EQ. The queue stays in the browser. The shared key is capped at 20 anonymous searches a day and 50 for a signed-in account. Cache hits are free.
 
 ## Save to YouTube
 
@@ -100,13 +98,7 @@ Each IP has a burst cap on `/api/*` (Workers Rate Limiting, free, per Cloudflare
 
 ## Neon navigation
 
-The app icon (orange circle) shows on the first screen, where you pick Preparar or DJ, and at the start of the bottom bar. Navigation buttons have no fill: each is its own neon and none shares a hue with deck A (teal) or deck B (amber): Cola blue, Buscar red, Preparar yellow, DJ cyan. The active one lights up in its colour with a strong glow; the rest dim with a faint glow.
-
-## Cutting (Preparar)
-
-In Preparar you pick a song: paste a link, search, or tap one from the queue. A full-screen editor lays the song out as rows of 10 s, like lines of text, with a tick per second and the time at the start of each row. Drag (mouse or finger) from one point to another, across as many rows as needed, to mark the cut; near the screen edges it scrolls by itself. Drag either end to fine-tune it. A tap without dragging moves the playhead. Play auditions only the selection and stops at its end. Save with your own name (blank falls back to “song m:ss”). In the Cortes list the pencil renames in place (Enter saves, Esc cancels) and the scissors reopen the cut to adjust it. Cuts live in this browser (IndexedDB) and export or import as JSON.
-
-YouTube's audio signal can't be read from the page, so the rows show time rather than a real waveform.
+The app icon (orange circle) shows large in the first-visit intro. Navigation buttons have no fill and are their own neon, distinct from deck A (teal) and deck B (amber): Buscar red. Active lights up with a strong glow; inactive dims with a faint glow.
 
 ## User menu
 

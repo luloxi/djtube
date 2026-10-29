@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { DeckId, DeckModel, Highlight, Track } from './types';
+import type { DeckId, DeckModel, Track } from './types';
 import { emptyDeck } from './types';
-import { readStoredMode, storeMode, type AppMode } from './lib/mode';
 import { clampLayout, layoutChanged, readLayout, storeLayout, type Bounds, type DeskLayout, type PanelBox } from './lib/layout';
 import { AdminPanel } from './components/AdminPanel';
 import { Deck, type DeckHandle } from './components/Deck';
@@ -14,13 +13,12 @@ import { InstallBanner } from './components/InstallBanner';
 import { KeyModal } from './components/KeyModal';
 import { Library } from './components/Library';
 import { PlaylistAsk } from './components/PlaylistAsk';
-import { Preparar } from './components/Preparar';
 import { SearchBox } from './components/SearchBox';
 import { Transition } from './components/Transition';
-import { Welcome } from './components/Welcome';
+import { Intro, introSeen, markIntroSeen } from './components/Intro';
 import { adminAlert, parseAdminSeen, type AdminSeen } from './lib/access';
-import { deckSnapshot, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
-import { clearQueue, removeQueuedTrack, restoreTrack } from './lib/library';
+import { deckSnapshot, loadLibrary, loadSession, saveLibrary, saveSession } from './lib/idb';
+import { removeQueuedTrack, restoreTrack } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
 import { fetchPlaylistPage, playlistItemToTrack, takeNewPlaylistItems, walkPlaylistPages, type PlaylistItem } from './lib/playlist';
 import { enrichTracks, parseYouTubeUrl, trackFromId, uniqueIds, type ParsedYouTube } from './lib/youtube';
@@ -53,19 +51,17 @@ export function App({
   const [seconds, setSeconds] = useState(3);
   const [decks, setDecks] = useState<Record<DeckId, DeckModel>>({ A: emptyDeck(), B: emptyDeck() });
   const [library, setLibrary] = useState<Track[]>([]);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistAsk, setPlaylistAsk] = useState<ParsedYouTube | null>(null);
   const [booted, setBooted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
   const [tab, setTab] = useState<SideTab | null>(null);
-  const [leftPane, setLeftPane] = useState<'queue' | 'search'>('queue');
   const [adminOpen, setAdminOpen] = useState(false);
   const [pending, setPending] = useState(0);
   const [adminNew, setAdminNew] = useState(false);
   const adminMark = useRef<AdminSeen | null>(null);
   const adminOpenRef = useRef(false);
-  const [mode, setMode] = useState<AppMode | null>(() => readStoredMode(window.localStorage));
+  const [intro, setIntro] = useState(() => !introSeen(window.localStorage));
   const [accessState, setAccessState] = useState<string | null>(access);
   const [requesting, setRequesting] = useState(false);
   const [ownKey, setOwnKey] = useState<string | null>(() => readOwnKey(window.localStorage));
@@ -159,19 +155,9 @@ export function App({
     });
   }
 
-  function anyPlaying(): boolean {
-    return (['A', 'B'] as DeckId[]).some((id) => {
-      try {
-        return handleFor(id)?.getPlayer()?.getPlayerState() === 1;
-      } catch {
-        return false;
-      }
-    });
-  }
-
-  function chooseMode(next: AppMode) {
-    setMode(next);
-    storeMode(window.localStorage, next);
+  function closeIntro() {
+    markIntroSeen(window.localStorage);
+    setIntro(false);
   }
 
   function setStatus(text: string) {
@@ -255,7 +241,7 @@ export function App({
 
   useEffect(() => {
     let cancel = false;
-    Promise.all([loadSession(), loadLibrary(), loadHighlights()]).then(([session, storedLibrary, storedHighlights]) => {
+    Promise.all([loadSession(), loadLibrary()]).then(([session, storedLibrary]) => {
       if (cancel) return;
       if (session) {
         const position = clamp01(session.x);
@@ -267,7 +253,6 @@ export function App({
         });
       }
       setLibrary(storedLibrary);
-      setHighlights(storedHighlights);
       setBooted(true);
     });
     return () => {
@@ -287,11 +272,6 @@ export function App({
     if (!booted) return;
     void saveLibrary(library);
   }, [booted, library]);
-
-  useEffect(() => {
-    if (!booted) return;
-    void saveHighlights(highlights);
-  }, [booted, highlights]);
 
   useEffect(() => {
     setAccessState(access ?? null);
@@ -447,8 +427,7 @@ export function App({
   }
 
   function showQueue() {
-    setLeftPane('queue');
-    setTab('queue');
+    setTab('search');
   }
 
   function appendTracks(items: PlaylistItem[]) {
@@ -550,43 +529,10 @@ export function App({
   const shownA = effectiveGain(curve.a, decks.A.volume);
   const shownB = effectiveGain(curve.b, decks.B.volume);
 
-  const leftOpen = mode === 'dj' && (tab === 'queue' || tab === 'search');
-
-  if (!mode) {
-    return (
-      <div className="shell" data-testid="app">
-        <Welcome onPick={chooseMode} />
-      </div>
-    );
-  }
-
-  function selectLeft(next: 'queue' | 'search') {
-    setLeftPane(next);
-    setTab(next);
-  }
+  const leftOpen = tab === 'search';
 
   return (
-    <div className="shell" data-mode={mode} data-testid="app">
-      {mode === 'preparar' ? (
-        <Preparar
-          highlights={highlights}
-          onHighlights={setHighlights}
-          onStatus={setStatus}
-          library={library}
-          ownKey={ownKey}
-          onYouTube={onYouTube}
-          onRemember={(track) => {
-            remember(track);
-            if (track.title === track.videoId) void enrichTracks([track.videoId], rename);
-          }}
-          onOpenKey={() => {
-            setLimitNote('');
-            setKeyOpen(true);
-          }}
-          onLimited={explainLimit}
-        />
-      ) : null}
-      {mode === 'dj' ? (
+    <div className="shell" data-testid="app">
       <div
         ref={workspaceRef}
         className={desktop ? 'workspace is-split' : leftOpen ? 'workspace list-open' : 'workspace'}
@@ -600,26 +546,8 @@ export function App({
             : undefined
         }
       >
-        <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Cola y búsqueda">
-          <div className="side-tabs">
-            <button type="button" className="icon-button tone-queue" aria-pressed={leftPane === 'queue'} aria-label="Cola" title="Cola" onClick={() => selectLeft('queue')}>
-              <Icon name="queue" />
-            </button>
-            <button type="button" className="icon-button tone-search" aria-pressed={leftPane === 'search'} aria-label="Buscar" title="Buscar" onClick={() => selectLeft('search')}>
-              <Icon name="search" />
-            </button>
-          </div>
-          <div className={leftPane === 'queue' ? 'pane pane-queue is-open' : 'pane pane-queue'}>
-            <Library
-              tracks={library}
-              loading={playlistLoading}
-              onLoad={(track, id) => void loadInto(id, track)}
-              keepIds={[decks.A.videoId, decks.B.videoId]}
-              onRemove={removeQueued}
-              onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
-            />
-          </div>
-          <div className={leftPane === 'search' ? 'pane pane-search is-open' : 'pane pane-search'}>
+        <aside className={leftOpen ? 'side side-left is-open' : 'side side-left'} aria-label="Buscar">
+          <div className="pane is-open">
             <SearchBox
               ownKey={ownKey}
               onLoad={(track, id) => void loadInto(id, track)}
@@ -629,6 +557,13 @@ export function App({
                 setKeyOpen(true);
               }}
               onLimited={explainLimit}
+            />
+            <Library
+              tracks={library}
+              loading={playlistLoading}
+              onLoad={(track, id) => void loadInto(id, track)}
+              keepIds={[decks.A.videoId, decks.B.videoId]}
+              onRemove={removeQueued}
             />
           </div>
         </aside>
@@ -651,17 +586,6 @@ export function App({
               />
             ))}
           </div>
-          <div className="queue-strip" aria-label="Cola">
-            <Library
-              tracks={library}
-              loading={playlistLoading}
-              compact
-              onLoad={(track, id) => void loadInto(id, track)}
-              keepIds={[decks.A.videoId, decks.B.videoId]}
-              onRemove={removeQueued}
-              onClear={() => setLibrary((prev) => clearQueue(prev, [decks.A.videoId, decks.B.videoId]))}
-            />
-          </div>
           <Transition
             x={x}
             gainA={shownA}
@@ -683,7 +607,6 @@ export function App({
         ) : null}
         {desktop ? <SplitBars layout={layout} onLayout={commitLayout} /> : null}
       </div>
-      ) : null}
       <Header
         onStatus={setStatus}
         owner={owner}
@@ -696,9 +619,6 @@ export function App({
         onRequestUnlimited={() => void requestUnlimited()}
         tab={tab}
         pending={pending}
-        mode={mode}
-        onMode={chooseMode}
-        isPlaying={anyPlaying}
         desktop={desktop}
         webcamOn={webcamOn}
         onWebcam={toggleWebcam}
@@ -714,7 +634,6 @@ export function App({
           setKeyOpen(true);
         }}
         onTab={(next) => {
-          if (next === 'queue' || next === 'search') setLeftPane(next);
           setTab((current) => (current === next ? null : next));
         }}
       />
@@ -741,6 +660,16 @@ export function App({
         </div>
       ) : null}
       <InstallBanner />
+      {intro ? (
+        <Intro
+          onKey={() => {
+            closeIntro();
+            setLimitNote('');
+            setKeyOpen(true);
+          }}
+          onClose={closeIntro}
+        />
+      ) : null}
       {keyOpen ? <KeyModal hasKey={Boolean(ownKey)} onSave={saveOwnKey} onClear={removeOwnKey} onClose={() => setKeyOpen(false)} /> : null}
       {limitNote ? (
         <div className="limit-note" role="status" data-testid="limit-note">

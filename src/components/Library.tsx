@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import type { DeckId, Track } from '../types';
 import { consumeDeckDrop, swipeCommit, trackIsLoaded } from '../lib/library';
-import { Icon } from './icons';
 import { QueueSave } from './QueueSave';
 import { decodeEntities } from '../lib/html-text';
 
@@ -12,27 +11,11 @@ type Props = {
   keepIds?: Array<string | null | undefined>;
   onLoad: (track: Track, deck: DeckId) => void;
   onRemove?: (track: Track) => void;
-  onClear?: () => void;
 };
 
-export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove, onClear }: Props) {
+export function Library({ tracks, loading = false, compact = false, keepIds = [], onLoad, onRemove }: Props) {
   return (
     <section className="panel" aria-label="Cola" aria-busy={loading || undefined}>
-      <div className="panel-head">
-        <h2>Cola</h2>
-        {onClear ? (
-          <button
-            type="button"
-            className="icon-button"
-            disabled={tracks.length === 0}
-            aria-label="Vaciar cola"
-            title="Vaciar cola"
-            onClick={onClear}
-          >
-            <Icon name="trash" />
-          </button>
-        ) : null}
-      </div>
       {loading ? <div className="queue-loading" data-testid="queue-loading" /> : null}
       <div className="list" data-testid={compact ? undefined : 'queue-list'}>
         {tracks.map((track) => (

@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AppMode } from '../lib/mode';
 import { Icon } from './icons';
-import { PreparModal } from './PreparModal';
 import { PushToggle } from './PushToggle';
 import { VoiceControl, type VoiceMix } from './VoiceControl';
 
-export type SideTab = 'queue' | 'search' | 'highlights';
+export type SideTab = 'search';
 
 const CONTACT_URL = 'https://lulox.com.ar/contacto';
 const REPO_URL = 'https://github.com/luloxi/djtube';
@@ -25,14 +23,11 @@ export function Header({
   onAdmin,
   pending = 0,
   adminNew = false,
-  mode,
-  onMode,
   desktop = false,
   webcamOn = false,
   onWebcam,
   onResetLayout,
   onOpenKey,
-  isPlaying,
 }: {
   onStatus: (message: string) => void;
   owner?: boolean;
@@ -48,17 +43,13 @@ export function Header({
   onAdmin?: () => void;
   pending?: number;
   adminNew?: boolean;
-  mode: AppMode;
-  onMode: (mode: AppMode) => void;
   desktop?: boolean;
   webcamOn?: boolean;
   onWebcam?: () => void;
   onResetLayout?: () => void;
   onOpenKey: () => void;
-  isPlaying?: () => boolean;
 }) {
   const [menu, setMenu] = useState(false);
-  const [leaveAsk, setLeaveAsk] = useState(false);
   const voiceMix = useRef<VoiceMix>({ stream: null, ctx: null });
   const accountRef = useRef<HTMLDivElement>(null);
   const unlimited = access === 'approved' || owner;
@@ -83,31 +74,14 @@ export function Header({
 
   return (
     <nav className="dock" aria-label="Navegación">
-      <div className="dock-modes">
-        <button type="button" className="icon-button tone-prepare" aria-pressed={mode === 'preparar'} aria-label="Preparar" title="Preparar" onClick={() => {
-            if (mode === 'dj' && isPlaying?.()) setLeaveAsk(true);
-            else onMode('preparar');
-          }}
-        >
-          <Icon name="prepare" />
-        </button>
-        <button type="button" className="icon-button tone-decks" aria-pressed={mode === 'dj'} aria-label="DJ" title="DJ" onClick={() => onMode('dj')}>
-          <Icon name="decks" />
+      <div className="dock-main">
+        <button type="button" className="icon-button dock-hit tone-search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
+          <Icon name="search" size={22} />
         </button>
       </div>
-      {mode === 'dj' ? (
-        <div className="dock-main">
-          <button type="button" className="icon-button dock-hit tone-queue" aria-pressed={tab === 'queue'} aria-label="Cola" title="Cola" onClick={() => onTab('queue')}>
-            <Icon name="queue" size={22} />
-          </button>
-          <button type="button" className="icon-button dock-hit tone-search" aria-pressed={tab === 'search'} aria-label="Buscar" title="Buscar" onClick={() => onTab('search')}>
-            <Icon name="search" size={22} />
-          </button>
-        </div>
-      ) : null}
       <span className="dock-gap" />
-      {desktop && mode === 'dj' ? <VoiceControl mix={voiceMix} onStatus={onStatus} /> : null}
-      {desktop && mode === 'dj' && onWebcam ? (
+      {desktop ? <VoiceControl mix={voiceMix} onStatus={onStatus} /> : null}
+      {desktop && onWebcam ? (
         <button type="button" className="icon-button" aria-pressed={webcamOn} aria-label="Cámara" title="Cámara" onClick={onWebcam}>
           <Icon name="camera" />
         </button>
@@ -193,15 +167,6 @@ export function Header({
           </div>
         ) : null}
       </div>
-      {leaveAsk ? (
-        <PreparModal
-          onStay={() => setLeaveAsk(false)}
-          onGo={() => {
-            setLeaveAsk(false);
-            onMode('preparar');
-          }}
-        />
-      ) : null}
     </nav>
   );
 }

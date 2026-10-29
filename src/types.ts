@@ -16,16 +16,6 @@ export type DeckModel = {
   peaks: number[] | null;
 };
 
-export type Highlight = {
-  id: string;
-  videoId: string;
-  title: string;
-  start: number;
-  end: number;
-  label: string;
-  peaks: number[];
-};
-
 export type SessionState = {
   x: number;
   decks: Record<DeckId, DeckModel>;

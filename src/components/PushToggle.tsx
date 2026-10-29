@@ -33,8 +33,9 @@ export function PushToggle({ onStatus }: { onStatus?: (message: string) => void 
   }
 
   return (
-    <button type="button" className={on ? 'icon-button on' : 'icon-button'} aria-pressed={on} aria-label="Avisos" title="Avisos" onClick={() => void toggle()}>
+    <button type="button" role="menuitem" className={on ? 'is-on' : undefined} aria-pressed={on} aria-label="Avisos" title="Avisos" onClick={() => void toggle()}>
       <Icon name="bell" />
+      <span>Avisos</span>
     </button>
   );
 }

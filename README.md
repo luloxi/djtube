@@ -143,3 +143,9 @@ En Preparar elegís la canción: pegás un enlace o buscás, o tocás una de la 
 
 La señal de audio de YouTube no se puede leer desde la página, así que las filas muestran tiempo y no una onda real.
 
+## Menú de usuario
+
+La barra de abajo ya no tiene la llave, la campana ni el escudo de admin: todo eso vive en el menú del botón de cuenta, tanto en móvil como en escritorio. Ahí están Entrar, Clave de YouTube (se guarda solo en este navegador, `djtube-yt-key`; sirve también sin haber entrado), Avisos (push, se enciende en verde neón), Admin (solo el dueño, con el contador de pedidos), Contacto, Código, Restablecer y Salir. El panel de admin ya no trae su propia campana.
+
+Cuando alguien nuevo entra o hay más pedidos de uso sin límite que la última vez que se abrió Admin, el botón de cuenta y la fila Admin se encienden en magenta neón hasta que el dueño abre el panel. Se compara con una marca guardada en este navegador (`djtube-admin-seen`: la última primera visita vista y la cantidad de pedidos), contra los datos que ya devuelve `/api/admin/people` (`firstSeen`, `status`); no hay tabla nueva en el servidor. Se consulta cada 20 s y la primera vez no enciende nada. Como la marca es local, otro navegador del dueño tiene su propio aviso.
+

@@ -18,6 +18,7 @@ import { Preparar } from './components/Preparar';
 import { SearchBox } from './components/SearchBox';
 import { Transition } from './components/Transition';
 import { Welcome } from './components/Welcome';
+import { adminAlert, parseAdminSeen, type AdminSeen } from './lib/access';
 import { deckSnapshot, loadHighlights, loadLibrary, loadSession, saveHighlights, saveLibrary, saveSession } from './lib/idb';
 import { clearQueue, removeQueuedTrack, restoreTrack } from './lib/library';
 import { clamp01, effectiveGain, transitionGain } from './lib/mixer';
@@ -30,6 +31,8 @@ function deskBounds(): Bounds {
   if (typeof window === 'undefined') return { width: 1440, height: 900 };
   return { width: window.innerWidth, height: Math.max(1, window.innerHeight - 44) };
 }
+
+const ADMIN_SEEN_KEY = 'djtube-admin-seen';
 
 export function App({
   owner = false,
@@ -59,6 +62,9 @@ export function App({
   const [leftPane, setLeftPane] = useState<'queue' | 'search'>('queue');
   const [adminOpen, setAdminOpen] = useState(false);
   const [pending, setPending] = useState(0);
+  const [adminNew, setAdminNew] = useState(false);
+  const adminMark = useRef<AdminSeen | null>(null);
+  const adminOpenRef = useRef(false);
   const [mode, setMode] = useState<AppMode | null>(() => readStoredMode(window.localStorage));
   const [accessState, setAccessState] = useState<string | null>(access);
   const [requesting, setRequesting] = useState(false);
@@ -306,15 +312,44 @@ export function App({
     return () => window.removeEventListener('keydown', onKey);
   }, [adminOpen]);
 
+  adminOpenRef.current = adminOpen;
+
+  function markAdminSeen() {
+    if (!adminMark.current) return;
+    try {
+      window.localStorage.setItem(ADMIN_SEEN_KEY, JSON.stringify(adminMark.current));
+    } catch {
+      /* private mode: the glow comes back on reload */
+    }
+  }
+
   useEffect(() => {
     if (!owner) return;
     let cancel = false;
     const tick = () => {
       fetch('/api/admin/people', { cache: 'no-store' })
         .then(async (response) => {
-          const data = (await response.json().catch(() => null)) as { pendingCount?: unknown };
+          const data = (await response.json().catch(() => null)) as { pendingCount?: unknown; people?: unknown };
           if (cancel || !response.ok || typeof data?.pendingCount !== 'number') return;
           setPending(data.pendingCount);
+          const rows = Array.isArray(data.people) ? data.people : [];
+          const people = rows.flatMap((row) => {
+            const item = row as { email?: unknown; firstSeen?: unknown; owner?: unknown };
+            return typeof item?.email === 'string' && typeof item.firstSeen === 'string'
+              ? [{ email: item.email, firstSeen: item.firstSeen, owner: item.owner === true }]
+              : [];
+          });
+          let seen: AdminSeen | null = null;
+          try {
+            seen = parseAdminSeen(window.localStorage.getItem(ADMIN_SEEN_KEY));
+          } catch {
+            /* private mode: no marker */
+          }
+          const result = adminAlert(people, data.pendingCount, seen);
+          adminMark.current = result.mark;
+          const watching = adminOpenRef.current;
+          if (!seen || watching) markAdminSeen();
+          setAdminNew(result.alert && !watching);
         })
         .catch(() => undefined);
     };
@@ -668,7 +703,12 @@ export function App({
         webcamOn={webcamOn}
         onWebcam={toggleWebcam}
         onResetLayout={desktop ? resetLayout : undefined}
-        onAdmin={() => setAdminOpen(true)}
+        adminNew={adminNew}
+        onAdmin={() => {
+          markAdminSeen();
+          setAdminNew(false);
+          setAdminOpen(true);
+        }}
         onOpenKey={() => {
           setLimitNote('');
           setKeyOpen(true);

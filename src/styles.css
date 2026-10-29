@@ -977,7 +977,19 @@ button[class*="tone-"]:focus-visible,
   cursor: pointer;
 }
 
-.account-menu a:hover { background: #26221c; }
+.account-menu { max-height: calc(100dvh - var(--dock-h) - 16px); overflow-y: auto; min-width: 176px; }
+.account-menu a:hover, .account-menu button:hover:not(:disabled) { background: #26221c; }
+.account-menu button { position: relative; }
+.account-menu svg { color: var(--muted); }
+.account-menu [aria-pressed="true"] svg { color: #3dff6e; filter: drop-shadow(0 0 2px #3dff6e) drop-shadow(0 0 7px rgba(61, 255, 110, 0.9)); }
+.account-menu .badge { position: static; margin-left: auto; }
+/* Someone new joined since the admin panel was last opened. */
+.account-menu .is-alert svg,
+.account-btn.is-alert { color: #ff3df2; filter: drop-shadow(0 0 2px #ff3df2) drop-shadow(0 0 9px rgba(255, 61, 242, 0.9)); }
+.account-menu .is-alert { color: #ff3df2; }
+.account-btn.is-alert { animation: alert-pulse 1.8s ease-in-out infinite; }
+@keyframes alert-pulse { 50% { filter: drop-shadow(0 0 1px #ff3df2) drop-shadow(0 0 4px rgba(255, 61, 242, 0.6)); } }
+@media (prefers-reduced-motion: reduce) { .account-btn.is-alert { animation: none; } }
 
 .panel {
   padding: 6px 8px 8px;

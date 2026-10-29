@@ -275,3 +275,32 @@ export function listPeople(people: AccessPerson[], query: string): AccessPerson[
 export function pendingCount(people: Array<{ status: string }>): number {
   return people.reduce((count, person) => (person.status === 'pending' ? count + 1 : count), 0);
 }
+
+export type AdminSeen = { at: string; pending: number };
+
+/**
+ * Whether the owner should be alerted: someone joined after the last time the admin panel was
+ * opened, or more people are waiting than back then. `mark` is what to store when it is opened.
+ */
+export function adminAlert(
+  people: Array<{ email: string; firstSeen: string; owner?: boolean }>,
+  pending: number,
+  seen: AdminSeen | null,
+): { alert: boolean; mark: AdminSeen } {
+  const others = people.filter((person) => !person.owner && !isOwnerEmail(person.email) && person.firstSeen);
+  const latest = others.reduce((max, person) => (person.firstSeen > max ? person.firstSeen : max), '');
+  const mark: AdminSeen = { at: latest, pending };
+  if (!seen) return { alert: false, mark };
+  return { alert: latest > seen.at || pending > seen.pending, mark };
+}
+
+export function parseAdminSeen(raw: string | null): AdminSeen | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<AdminSeen>;
+    if (typeof value.at !== 'string' || typeof value.pending !== 'number') return null;
+    return { at: value.at, pending: value.pending };
+  } catch {
+    return null;
+  }
+}

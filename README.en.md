@@ -108,3 +108,9 @@ In Preparar you pick a song: paste a link, search, or tap one from the queue. A 
 
 YouTube's audio signal can't be read from the page, so the rows show time rather than a real waveform.
 
+## User menu
+
+The bottom bar no longer has the key, the bell, or the admin shield: they all live in the account button's menu, on phone and desktop alike. It holds Entrar, YouTube key (stored only in this browser as `djtube-yt-key`; works signed out too), Avisos (push, lit neon green when on), Admin (owner only, with the pending count), Contacto, Código, Restablecer, and Salir. The admin panel no longer has its own bell.
+
+When someone new joins, or more unlimited-use requests are waiting than the last time Admin was opened, the account button and the Admin row glow neon magenta until the owner opens the panel. It compares against a marker stored in this browser (`djtube-admin-seen`: the latest first-seen and the pending count) and the data `/api/admin/people` already returns (`firstSeen`, `status`); there is no new server table. It polls every 20 s and the first run lights nothing. Because the marker is local, another browser of the owner keeps its own alert state.
+

@@ -24,6 +24,7 @@ export function Header({
   onTab,
   onAdmin,
   pending = 0,
+  adminNew = false,
   mode,
   onMode,
   desktop = false,
@@ -46,6 +47,7 @@ export function Header({
   onTab: (tab: SideTab) => void;
   onAdmin?: () => void;
   pending?: number;
+  adminNew?: boolean;
   mode: AppMode;
   onMode: (mode: AppMode) => void;
   desktop?: boolean;
@@ -60,6 +62,7 @@ export function Header({
   const voiceMix = useRef<VoiceMix>({ stream: null, ctx: null });
   const accountRef = useRef<HTMLDivElement>(null);
   const unlimited = access === 'approved' || owner;
+  const alertOn = owner && adminNew;
   const askLabel = access === 'pending' ? 'Pedido enviado' : access === 'blocked' ? 'Bloqueado' : 'Uso sin límite';
 
   useEffect(() => {
@@ -109,18 +112,8 @@ export function Header({
           <Icon name="camera" />
         </button>
       ) : null}
-      <button type="button" className="icon-button tone-key" data-testid="yt-key-open" aria-label="Usá tu propia clave" title="Usá tu propia clave" onClick={onOpenKey}>
-        <Icon name="key" />
-      </button>
-      {email ? <PushToggle onStatus={onStatus} /> : null}
-      {owner ? (
-        <button type="button" className="icon-button admin-hit" title="Uso sin límite" aria-label="Uso sin límite" onClick={onAdmin}>
-          <Icon name="admin" />
-          {pending > 0 ? <span className="badge">{pending > 99 ? '99+' : pending}</span> : null}
-        </button>
-      ) : null}
       <div className="account" ref={accountRef}>
-        <button type="button" className="icon-button" aria-label="Cuenta" title="Cuenta" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((open) => !open)}>
+        <button type="button" className={alertOn ? 'icon-button account-btn is-alert' : 'icon-button account-btn'} aria-label={alertOn ? 'Cuenta, hay gente nueva' : 'Cuenta'} title="Cuenta" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((open) => !open)}>
           <Icon name="user" />
         </button>
         {menu ? (
@@ -129,6 +122,39 @@ export function Header({
               <button type="button" role="menuitem" aria-label="Entrar" title="Entrar" disabled={!configured} onClick={onSignIn}>
                 <Icon name="user" />
                 <span>{configured ? 'Entrar' : 'Login en configuración'}</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="yt-key-open"
+              aria-label="Clave de YouTube"
+              title="Clave de YouTube"
+              onClick={() => {
+                setMenu(false);
+                onOpenKey();
+              }}
+            >
+              <Icon name="key" />
+              <span>Clave de YouTube</span>
+            </button>
+            {email ? <PushToggle onStatus={onStatus} /> : null}
+            {owner ? (
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="admin-open"
+                className={alertOn ? 'is-alert' : undefined}
+                aria-label="Admin"
+                title="Admin"
+                onClick={() => {
+                  setMenu(false);
+                  onAdmin?.();
+                }}
+              >
+                <Icon name="admin" />
+                <span>Admin</span>
+                {pending > 0 ? <span className="badge">{pending > 99 ? '99+' : pending}</span> : null}
               </button>
             ) : null}
             {email && !unlimited && onRequestUnlimited ? (

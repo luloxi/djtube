@@ -18,6 +18,7 @@ import { parseSearchItems } from '../src/lib/youtube-search';
 import { handleAccount } from './account';
 import { listAll, publicPerson, readPerson, recordVisit, setStatus } from './access-db';
 import { authConfig, getAuth, readSession } from './auth';
+import { ssoClearCookie } from './lulox-sso';
 import { chargeBudget, keyBudget } from './budget';
 import type { D1Database } from './d1';
 import { notifyAccessRequest, notifyApproved } from './notify';
@@ -65,7 +66,12 @@ export default {
 async function handleAuth(request: Request, env: Env): Promise<Response> {
   const auth = getAuth(env);
   if (!auth) return json({ error: 'Auth is not configured' }, 503);
-  return auth.handler(request);
+  const res = await auth.handler(request);
+  if (!new URL(request.url).pathname.endsWith('/sign-out')) return res;
+  // Signing out here also ends the shared Genkilulox login, or it would sign you right back in.
+  const out = new Response(res.body, res);
+  out.headers.append('set-cookie', ssoClearCookie());
+  return out;
 }
 
 async function handleMe(request: Request, env: Env): Promise<Response> {
